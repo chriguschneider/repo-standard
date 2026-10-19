@@ -58,7 +58,7 @@ something:
 
 | Layer | What it does | Where |
 |---|---|---|
-| Tool allowlist | `--permission-mode dontAsk` plus `--allowedTools`: git, a few `gh` subcommands and the repo's own check commands. Anything else is refused without a prompt. No `--dangerously-skip-permissions`. | `claude_args` in each workflow |
+| Tool allowlist | `--permission-mode dontAsk` plus `--allowedTools`: git, a few `gh` subcommands, the everyday text/file tools (grep, find, head, tail, cat, sed, awk, jq, cp, mv, …) and the repo's own check commands and script runner (node / python3). Anything else is refused without a prompt; shell loops are never matched, so the prompt tells the agent to switch to an allowed equivalent instead of stopping. No `--dangerously-skip-permissions`. | `claude_args` in each workflow |
 | Deny rules | `gh api`, `gh secret`, `gh workflow`, `gh repo`, `curl`, `wget`, force pushes. Deny always wins. | `.claude/ci-settings.json` |
 | Path guard hook | Blocks every write to `.github/` and `.claude/`, through file tools or the shell. Runs only on GitHub Actions; local sessions are unaffected. | `.claude/hooks/protect-paths.py` |
 | Trusted text only | Untrusted issues are refused, foreign comments are filtered out, the autopilot only takes issues written by the owner. | job `if:`, `include_comments_by_actor`, `pick-next-issue.sh` |

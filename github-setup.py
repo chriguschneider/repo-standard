@@ -138,6 +138,12 @@ def main() -> None:
         extra = ["--default-branch", branch] if production else []
         gh(["repo", "edit", a.repo, "--enable-auto-merge", "--enable-squash-merge",
             "--delete-branch-on-merge", *extra], a.dry_run)
+        # after-agent-run.sh opens the draft PR for a run's leftovers with the
+        # workflow's GITHUB_TOKEN; GitHub refuses that ("GitHub Actions is not
+        # permitted to create or approve pull requests") unless this is on.
+        gh(["api", "-X", "PUT", f"repos/{a.repo}/actions/permissions/workflow"],
+           a.dry_run, {"default_workflow_permissions": "read",
+                       "can_approve_pull_request_reviews": True})
 
     if "protection" in steps:
         payload = {

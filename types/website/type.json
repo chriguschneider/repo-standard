@@ -19,7 +19,7 @@
     "CODEQL_LANGUAGE": "javascript-typescript",
     "CHECKS_INLINE": "`npm run build`",
     "AGENT_CHECKS": "`npm ci`, then `npm run build` (runs `astro check`, `astro build`,\nthe link check and the CSP check). A content or text change in one\nlanguage needs the same keys in every dictionary under `src/i18n/`.",
-    "AGENT_TOOLS": "Bash(npm ci*),Bash(npm run build*),Bash(npm run check*),Bash(npx astro check*)",
+    "AGENT_TOOLS": "Bash(npm ci*),Bash(npm run build*),Bash(npm run check*),Bash(npx astro check*),Bash(node *),Bash(npm run *)",
     "EGRESS_EXTRA": "",
     "DEPENDABOT_EXTRA": "- package-ecosystem: \"npm\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    npm-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"",
     "HOLD_EXAMPLES": "e.g. a visible layout, design or wording change the issue leaves open, a changed URL that other sites link to, the CSP in `public/_headers` or the indexing switches in `src/config.ts`; a visible change the issue specifies exactly is merged, since it reaches the preview only and the owner checks the preview before promoting",
