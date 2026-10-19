@@ -5,10 +5,10 @@
 
 ## Context
 
-@@OWNER@@'s repos arrived at their CI, release and agent setup through a
-series of real incidents (releases tagged against the wrong tree, an agent
+The repos this setup comes from arrived at their CI, release and agent
+setup through a series of real incidents (releases tagged against the wrong tree, an agent
 PR sitting silently on a failed check, a reviewer blocked by the bot-actor
-guard, pushes going out as the wrong bot). `repo-standard` collects those
+guard, pushes going out as the wrong bot). [`repo-standard`](@@STANDARD_URL@@) collects those
 lessons so a new repo starts with them instead of repeating them.
 
 ## Decision

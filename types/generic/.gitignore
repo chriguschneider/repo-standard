@@ -1,0 +1,8 @@
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Machine-local Claude notes (shared conventions live in AGENTS.md)
+/CLAUDE.md
+.claude/settings.local.json

@@ -1,0 +1,130 @@
+# How it works
+
+This is the set-up I use to let Claude agents work on my GitHub repos while I
+stay in charge of direction. I describe what I want, the issues get written,
+and most of them are implemented, reviewed and merged without me touching
+the code. I only hear about an issue when it is unclear or needs a human
+check, and I still decide when a release goes out.
+
+The standard came out of real use: first on
+[`hass-meteoswiss-radar`](https://github.com/chriguschneider/hass-meteoswiss-radar)
+and [`weather-station-card`](https://github.com/chriguschneider/weather-station-card),
+then on [`hass-meteoswiss-weather`](https://github.com/chriguschneider/hass-meteoswiss-weather),
+where an integration went from an idea to v0.5.0 with most of the code
+written by agents. Every guard below exists because something went wrong
+once.
+
+## The loop
+
+```mermaid
+flowchart TD
+    A[Idea, in a chat with Claude] --> B[Requirement + issues<br/>P-label, area, model label]
+    B --> C{How is it handed over?}
+    C -->|label agent:go| D[claude-labeled.yml]
+    C -->|comment @claude| E[claude-mention.yml]
+    C -->|autopilot: next P-issue,<br/>only if no agent PR is open| F[claude-autopilot.yml]
+    D --> G[Agent implements on claude/N-slug<br/>runs the checks, opens a draft PR]
+    E --> G
+    F --> G
+    G --> H[claude-review.yml<br/>independent Opus reviewer]
+    H -->|green and sound| I[auto-merge, squash]
+    H -->|needs a human| J[label needs-verification<br/>comment: what to check]
+    I --> K[CI watch: a failing required check<br/>after the LGTM becomes needs-verification]
+    I --> F
+    J --> L[Human checks, merges]
+    L --> F
+    I -.-> M[Release: human bumps version + changelog,<br/>pushes an annotated tag, release.yml publishes]
+```
+
+Three ways in, one way out:
+
+- **`agent:go` label** — the opt-in. An issue without the label is never
+  touched, so a repo full of loose ideas is safe.
+- **`@claude` comment** — for a quick change or a question on an issue or PR.
+- **Autopilot** (only in repos that have an ordered backlog) — takes the next
+  P1, then P2, then P3 issue, but only while no agent PR is open. One PR at
+  a time means no two agents edit the same file and the quota never spikes.
+
+Whatever the entry, the result is a **draft PR on a `claude/<n>-<slug>`
+branch**. The default branch is protected; nothing lands without the
+required checks.
+
+## The reviewer
+
+The author and the reviewer are different runs with different models:
+Sonnet (or whatever the labels pick) writes, Opus reviews, so nothing grades
+its own work. The reviewer reads the conventions and decisions first, reviews
+adversarially, runs every check, fixes real problems itself (at most three
+rounds) and then makes one call:
+
+- **auto-merge** when the checks are green and the change is sound, or
+- **hold** with `needs-verification` and a comment saying exactly what a
+  human must look at — only when a live system or a decision is genuinely
+  needed. Anyone can add the label to force a human check.
+
+The default is to merge. A reviewer that holds everything "to be safe" just
+moves the bottleneck back to me.
+
+## Picking the model
+
+`pick-model.sh` maps labels to a model: `agent:opus|sonnet|haiku` override,
+otherwise P1 → Opus, P3 or `good first issue` → Haiku, everything else →
+Sonnet. The rule of thumb: if the result can be judged right or wrong in ten
+seconds, Haiku; if it needs an idea but no design, Sonnet; if it can break
+the architecture or the cause is unclear, Opus. Aliases are used instead of
+pinned model IDs so the workflows don't go stale with every release.
+
+## The repo is the memory
+
+Agents start from zero every run, so everything they need is in the repo:
+
+- **`AGENTS.md`** — conventions for any AI assistant (and humans): branch
+  names, draft PRs, changelog rule, release procedure, how to test, and the
+  non-negotiables of this repo.
+- **`docs/adr/`** — short architecture decision records. The workflows tell
+  the agent to stop rather than break one, and the reviewer checks against
+  them.
+- **Two repo-local Claude Code skills** — `commit-guardian` checks a staged
+  diff against the ADRs before a commit; `documentation-guardian` proposes an
+  ADR when a change is architectural.
+- **`CHANGELOG.md`** — written as part of every user-visible PR, so a
+  release is a rename of `[Unreleased]`, not an archaeology session.
+
+## Lessons that became guards
+
+| What happened | Guard in the standard |
+|---|---|
+| A fresh repo without the secret had red workflows from day one | Every agent workflow checks for `CLAUDE_CODE_OAUTH_TOKEN` and skips with a notice |
+| The action could not get its GitHub App token | `id-token: write` on every agent job |
+| Agent pushes went out as `github-actions[bot]`, their CI sat in "action required" | `persist-credentials: false` on checkout |
+| The reviewer never ran on PRs opened by the agent bot | `allowed_bots: "claude"` on the reviewer and autopilot |
+| `@claude` comments from strangers run with access to secrets on public repos | Mention workflow gated to OWNER / MEMBER / COLLABORATOR |
+| An autonomous agent should not rewrite its own CI | The app token has no `workflows` permission; the prompt says to describe such changes and stop |
+| A reviewer that commits would re-trigger itself forever | Review runs on PR opened / ready only, not on push |
+| `strict` branch protection made every second PR "behind" | `strict` off, checks still required (merge queues are org-only) |
+| Auto-merge was armed, then hassfest failed — the PR sat silently for hours | The reviewer job waits for the checks and hands a failure to a human |
+| GitHub fired the 30-minute cron only about every 10 hours | Autopilot also advances on merged PRs, finished CI/review runs and label changes |
+| A run that hit the turn cap left nothing behind and was retried forever | 150-turn cap documented; issues are cut so one run fits (measure, decide, then implement) |
+| A release was cut from a tag that did not match the code | Release only if the tag equals the declared version and the changelog has a non-empty section |
+| The release title showed the commit subject instead of the tag message | Title read from the annotated tag via the API (checkout overwrites the tag locally) |
+| HACS showed zero downloads | Integrations ship a zip asset with `zip_release`, guarded by a test |
+| Two agents on the same file meant a merge conflict on the second PR | One agent PR at a time in autopilot; parallel work only along module boundaries |
+
+## What stays human
+
+- **Direction**: which issues exist and in which order (P-labels).
+- **Secrets**: the Claude token and any other secret are set by the owner,
+  never by an agent and never in a chat.
+- **Workflow changes**: done with the owner's own login, not by the agent.
+- **Releases**: a human bumps the version and pushes the tag.
+- **Anything labelled `needs-verification`.**
+
+## Outside the repo (optional)
+
+I keep a personal knowledge base in Obsidian. Every repo has a project note
+there with the context that does not belong in the repo (why the project
+exists, research, operating experience), and a `repo/` folder that only
+holds symlinks to the repo's README, AGENTS.md, CHANGELOG and docs, so the
+documentation is readable next to my notes without copying it.
+`check.py --vault` checks that link. If you don't use Obsidian, ignore the
+flag; nothing else depends on it.

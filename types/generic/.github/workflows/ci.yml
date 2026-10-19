@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [@@BRANCH@@]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # One script, so a local run is exactly what CI runs.
+      - run: bash scripts/check.sh

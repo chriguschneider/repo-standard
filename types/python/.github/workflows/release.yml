@@ -1,0 +1,96 @@
+name: Release
+
+# ADR-0001: a pushed tag must not become a release on its own. The tag is
+# checked against pyproject.toml and release notes must already exist in
+# CHANGELOG.md.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Verify tag and publish release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - run: pip install -e ".[test]" build
+      - run: pytest -q
+
+      - name: Tag matches pyproject.toml
+        id: version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          declared="$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          if [ "$version" != "$declared" ]; then
+            echo "::error::Tag $tag declares version $version, but pyproject.toml says $declared."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Extract the changelog section
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re, sys
+
+          version = os.environ["VERSION"]
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = (
+              rf"^## \[v{re.escape(version)}\][^\n]*\n"
+              r"(.*?)(?=^## \[|^\[[^\]]+\]: |\Z)"
+          )
+          match = re.search(pattern, text, re.S | re.M)
+          if match is None:
+              sys.exit(f"::error::CHANGELOG.md has no '## [v{version}]' section.")
+          notes = match.group(1).strip()
+          if not notes:
+              sys.exit(f"::error::The '## [v{version}]' section in CHANGELOG.md is empty.")
+          pathlib.Path("release-notes.md").write_text(notes + "\n", encoding="utf-8")
+          PY
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::A release for $TAG already exists."
+            exit 1
+          fi
+          # Title from the annotated tag's message (`git tag -a vX -m "..."`).
+          # Read via the API: actions/checkout force-overwrites the
+          # triggering tag locally, so its message is unreachable with git.
+          subject=""
+          ref="repos/${{ github.repository }}/git/ref/tags/$TAG"
+          if [ "$(gh api "$ref" --jq '.object.type')" = "tag" ]; then
+            sha="$(gh api "$ref" --jq '.object.sha')"
+            subject="$(gh api "repos/${{ github.repository }}/git/tags/$sha" --jq '.message' | head -1)"
+          fi
+          subject="${subject#"$TAG"}"
+          subject="${subject#" — "}"
+          subject="${subject#" - "}"
+          subject="${subject#": "}"
+          title="$TAG${subject:+ — $subject}"
+          pre=""
+          case "$TAG" in *-*) pre="--prerelease" ;; esac
+          gh release create "$TAG" --title "$title" --notes-file release-notes.md \
+            --verify-tag $pre @@RELEASE_ASSETS@@

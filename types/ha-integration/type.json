@@ -12,7 +12,6 @@
     "INTEGRATION_TYPE": "service",
     "HA_MIN": "2025.1.0",
     "CODEQL_LANGUAGE": "python",
-    "DEPENDABOT_ECOSYSTEM": "pip",
     "CHECKS_INLINE": "`ruff check custom_components tests`, `pytest -q`",
     "AGENT_CHECKS": "`pip install -r requirements_test.txt`,\n`ruff check custom_components tests`, `pytest -q`.",
     "REVIEW_CHECKS": "`pip install -r requirements_test.txt`,\n`ruff check custom_components tests`, `pytest -q`, and hassfest,\nwhich is a required CI check that pytest does not cover (manifest,\ndependencies, translations, config flow):\n`docker run --rm -v \"$PWD\":/github/workspace ghcr.io/home-assistant/hassfest`",
@@ -22,7 +21,8 @@
     "BUG_ENVIRONMENT": "- **Home Assistant version**: (e.g., 2026.10.0)\n- **Integration version**: (e.g., 0.1.0)",
     "STRUCTURE": "custom_components/@@DOMAIN@@/\n├── __init__.py          # entry setup/unload, platforms\n├── config_flow.py       # UI setup + options\n├── const.py             # DOMAIN, VERSION, constants\n├── brand/               # icon.png, icon@2x.png\n├── strings.json / translations/\n└── manifest.json\ntests/                   # pytest + pytest-homeassistant-custom-component\ndocs/adr/                # decisions",
     "RELEASE_STEPS": "Releases are automated via tag push (`.github/workflows/release.yml`, ADR-0001):\n\n1. **Update version and changelog**: bump `version` in\n   `custom_components/@@DOMAIN@@/manifest.json` and `VERSION` in\n   `const.py`. Rename `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD`,\n   add a fresh empty `## [Unreleased]` and the link definition. Commit as\n   `chore(release): vX.Y.Z`.\n2. **Verify**: `pytest -q tests/test_metadata.py tests/test_changelog.py`.\n3. **Tag** with an **annotated** tag whose message is the release title:\n   `git tag -a vX.Y.Z -m \"what changed\"`.\n4. **Push**: `git push origin vX.Y.Z`. The workflow verifies the tag\n   against the manifest, extracts the notes, packages `@@DOMAIN@@.zip`\n   and creates the release. HACS reads it.",
-    "TESTING": "- `pip install -r requirements_test.txt` once.\n- **Lint**: `ruff check custom_components tests`.\n- **Tests**: `pytest -q`. Metadata/changelog tests are stdlib-only;\n  integration tests use `pytest-homeassistant-custom-component`\n  (`hass` fixture, `enable_custom_integrations`), with upstream responses\n  replayed from `tests/fixtures/` — never hit the network in tests."
+    "TESTING": "- `pip install -r requirements_test.txt` once.\n- **Lint**: `ruff check custom_components tests`.\n- **Tests**: `pytest -q`. Metadata/changelog tests are stdlib-only;\n  integration tests use `pytest-homeassistant-custom-component`\n  (`hass` fixture, `enable_custom_integrations`), with upstream responses\n  replayed from `tests/fixtures/` — never hit the network in tests.",
+    "DEPENDABOT_EXTRA": "- package-ecosystem: \"pip\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\""
   },
   "required_checks": [
     "hassfest (HA manifest validation)",

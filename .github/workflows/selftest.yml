@@ -1,0 +1,91 @@
+name: Self-test
+
+# Render every type and run the rendered repo's own checks, so a change to
+# the standard that breaks a type fails here, not in the next new repo.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    name: ${{ matrix.type }} (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { type: generic, mode: minimal, domain: demo-generic }
+          - { type: python, mode: opt-in, domain: demo_tool }
+          - { type: ha-integration, mode: autopilot, domain: demo_thing }
+          - { type: lovelace-card, mode: opt-in, domain: demo-card }
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Render
+        run: |
+          python3 render.py --type "${{ matrix.type }}" --mode "${{ matrix.mode }}" \
+            --out "$RUNNER_TEMP/demo" \
+            --set OWNER=octocat --set "AUTHOR=Mona Lisa" \
+            --set REPO=demo --set "NAME=Demo" --set DOMAIN="${{ matrix.domain }}" \
+            --set "DESCRIPTION=A repo rendered by the repo-standard self-test." \
+            | tee render.log
+          if grep -q "unresolved placeholders" render.log; then exit 1; fi
+          cd "$RUNNER_TEMP/demo" && git init -q
+
+      - name: Standard check
+        run: python3 check.py "$RUNNER_TEMP/demo"
+
+      - name: actionlint
+        run: |
+          bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          cd "$RUNNER_TEMP/demo" && "$GITHUB_WORKSPACE/actionlint" -color
+
+      - name: Checks (generic)
+        if: matrix.type == 'generic'
+        working-directory: ${{ runner.temp }}/demo
+        run: bash scripts/check.sh
+
+      - name: Checks (python)
+        if: matrix.type == 'python'
+        working-directory: ${{ runner.temp }}/demo
+        run: |
+          pip install -e ".[test]" build
+          ruff check src tests
+          pytest -q
+          python -m build
+
+      - name: Checks (ha-integration)
+        if: matrix.type == 'ha-integration'
+        working-directory: ${{ runner.temp }}/demo
+        run: |
+          pip install -r requirements_test.txt
+          ruff check custom_components tests
+          pytest -q
+          rm -rf .pytest_cache
+          docker run --rm -v "$PWD":/github/workspace ghcr.io/home-assistant/hassfest
+
+      - uses: actions/setup-node@v7
+        if: matrix.type == 'lovelace-card'
+        with:
+          node-version: "22"
+
+      - name: Checks (lovelace-card)
+        if: matrix.type == 'lovelace-card'
+        working-directory: ${{ runner.temp }}/demo
+        run: |
+          npm install --no-audit --no-fund
+          npm audit --audit-level=high
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run build

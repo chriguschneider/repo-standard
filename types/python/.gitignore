@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Coverage output (CI feeds it to SonarCloud, never committed)
+coverage.xml
+.coverage
+/build/
+/dist/
+*.egg-info/
+
+# Machine-local Claude notes (shared conventions live in AGENTS.md)
+/CLAUDE.md
+.claude/settings.local.json

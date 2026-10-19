@@ -9,8 +9,7 @@ an AI assistant working on a branch, or a human driving one.
 ## Shared Skeleton
 
 These conventions apply across all of @@OWNER@@'s repos and come from
-[`repo-standard`](https://github.com/@@OWNER@@/repo-standard). Repo-specific
-sections follow below.
+[`repo-standard`](@@STANDARD_URL@@). Repo-specific sections follow below.
 
 ### Commit attribution
 

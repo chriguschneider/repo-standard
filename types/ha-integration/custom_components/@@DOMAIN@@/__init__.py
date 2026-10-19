@@ -1,4 +1,4 @@
-"""@@NAME@@: @@DESCRIPTION@@"""
+"""The @@NAME@@ integration."""
 
 from __future__ import annotations
 

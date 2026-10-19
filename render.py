@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 """Render a new repository from this standard.
 
-Copies ``common/``, the chosen ``types/<type>/`` (minus ``type.json``) and,
-for ``--mode autopilot``, ``modes/autopilot/`` into ``--out``, replacing
-``@@KEY@@`` placeholders in file contents and paths.
+Copies ``common/``, the chosen ``types/<type>/`` and, for ``--mode
+autopilot``, ``modes/autopilot/`` into ``--out``, replacing ``@@KEY@@``
+placeholders in file contents and paths.
 
 ``@@KEY@@`` is used instead of ``{{key}}`` because GitHub workflow files
 are full of ``${{ ... }}`` expressions.
 
-Values come from three places, later wins:
-  1. built-ins (OWNER, BRANCH, YEAR, DATE),
-  2. ``types/<type>/type.json`` -> ``placeholders``,
-  3. ``--set KEY=VALUE`` on the command line.
+Values, later wins:
+  1. built-ins (BRANCH, YEAR, DATE, MODE, STANDARD_URL),
+  2. detected identity: OWNER from `gh api user`, AUTHOR from `git config
+     user.name`,
+  3. your defaults file ($XDG_CONFIG_HOME/repo-standard/defaults.json,
+     usually ~/.config/repo-standard/defaults.json), e.g.
+     {"OWNER": "octocat", "AUTHOR": "Mona Lisa", "FUNDING_URL": "https://..."},
+  4. ``types/<type>/type.json`` -> ``placeholders``,
+  5. ``types/<type>/_snippets/<KEY>.md`` (one file per multi-line value),
+  6. ``--set KEY=VALUE`` on the command line.
 
-A multi-line value replaces a placeholder that sits alone on its line with
-one line per value line, each carrying that line's indentation, so values
-can be injected into YAML block scalars and Markdown lists alike.
+A placeholder alone on its line is replaced by the value's lines, each with
+that line's indentation (works inside YAML block scalars and Markdown); if
+the value is empty, the line disappears. That is how optional parts such as
+the funding badge drop out.
 
 Stdlib only. Refuses to write into a non-empty directory.
 """
@@ -24,17 +31,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
+import subprocess
 import sys
 from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+STANDARD_URL = "https://github.com/chriguschneider/repo-standard"
 PLACEHOLDER = re.compile(r"@@([A-Z0-9_]+)@@")
 MODES = ("minimal", "opt-in", "autopilot")
 # Workflows that only make sense with branch protection + auto-merge.
 REVIEW_ONLY = {".github/workflows/claude-review.yml"}
+IDENTITY = ("OWNER", "AUTHOR")
 
 
 def load_type(name: str) -> dict:
@@ -45,16 +56,63 @@ def load_type(name: str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _run(cmd: list[str]) -> str:
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+def detected_identity() -> dict[str, str]:
+    found = {
+        "OWNER": _run(["gh", "api", "user", "--jq", ".login"]),
+        "AUTHOR": _run(["git", "config", "user.name"]),
+    }
+    return {k: v for k, v in found.items() if v}
+
+
+def user_defaults() -> dict[str, str]:
+    base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    path = base / "repo-standard" / "defaults.json"
+    if not path.is_file():
+        return {}
+    return {k.upper(): str(v) for k, v in json.loads(path.read_text(encoding="utf-8")).items()}
+
+
+def snippets(type_dir: Path) -> dict[str, str]:
+    folder = type_dir / "_snippets"
+    if not folder.is_dir():
+        return {}
+    return {p.stem.upper(): p.read_text(encoding="utf-8") for p in sorted(folder.glob("*.md"))}
+
+
+def funding(values: dict[str, str]) -> None:
+    url = values.get("FUNDING_URL", "")
+    label = values.get("FUNDING_LABEL", "Sponsor")
+    values.setdefault(
+        "FUNDING_BADGE",
+        f'<a href="{url}"><img alt="{label}" src="https://img.shields.io/badge/'
+        f'{label.replace(" ", "%20")}-support-FFDD00.svg" /></a>' if url else "",
+    )
+    values.setdefault(
+        "FUNDING_LINE",
+        f"If this is useful to you, [a coffee]({url}) is a nice way to say thanks. "
+        "(Claude doesn't drink coffee. More for me.)" if url else "",
+    )
+
+
 def substitute(text: str, values: dict[str, str], missing: set[str]) -> str:
     out: list[str] = []
     for line in text.splitlines(keepends=True):
-        stripped = line.strip()
-        whole = PLACEHOLDER.fullmatch(stripped)
-        if whole and "\n" in values.get(whole.group(1), ""):
+        whole = PLACEHOLDER.fullmatch(line.strip())
+        if whole and whole.group(1) in values:
+            value = values[whole.group(1)].rstrip("\n")
+            if not value:
+                continue  # optional part not configured: drop the line
             indent = line[: len(line) - len(line.lstrip())]
             ending = "\n" if line.endswith("\n") else ""
-            body = values[whole.group(1)].rstrip("\n").split("\n")
-            out.append("\n".join(indent + v if v else "" for v in body) + ending)
+            out.append("\n".join(indent + v if v else "" for v in value.split("\n")) + ending)
             continue
 
         def repl(m: re.Match[str]) -> str:
@@ -76,7 +134,7 @@ def collect(sources: list[Path], skip: set[str]) -> dict[str, Path]:
             if path.is_dir():
                 continue
             rel = path.relative_to(src).as_posix()
-            if rel in skip:
+            if rel in skip or rel.startswith("_snippets/"):
                 continue
             files[rel] = path
     return files
@@ -84,28 +142,34 @@ def collect(sources: list[Path], skip: set[str]) -> dict[str, Path]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--type", required=True, help="e.g. ha-integration, lovelace-card")
+    ap.add_argument("--type", required=True, help="see types/")
     ap.add_argument("--mode", choices=MODES, default="opt-in")
-    ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--out", type=Path)
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     ap.add_argument("--list", action="store_true", help="print the placeholders and exit")
     args = ap.parse_args()
 
     spec = load_type(args.type)
+    type_dir = ROOT / "types" / args.type
     today = date.today()
     values: dict[str, str] = {
-        "OWNER": "chriguschneider",
         "BRANCH": "master",
         "YEAR": str(today.year),
         "DATE": today.isoformat(),
         "MODE": args.mode,
+        "STANDARD_URL": STANDARD_URL,
+        "FUNDING_URL": "",
     }
+    values.update(detected_identity())
+    values.update(user_defaults())
     values.update(spec.get("placeholders", {}))
+    values.update(snippets(type_dir))
     for item in args.set:
         key, sep, value = item.partition("=")
         if not sep:
             sys.exit(f"--set expects KEY=VALUE, got {item!r}")
         values[key.strip().upper()] = value.replace("\\n", "\n")
+    funding(values)
 
     # Values may reference other placeholders (e.g. STRUCTURE uses DOMAIN);
     # resolve them a few rounds deep before touching any file.
@@ -115,20 +179,23 @@ def main() -> None:
             for k, v in values.items()
         }
 
-    required = spec.get("required", [])
+    required = [*IDENTITY, *spec.get("required", [])]
     absent = [k for k in required if not values.get(k)]
-    if args.list or absent:
-        print("required (--set):", ", ".join(required))
-        print("defaults:", ", ".join(sorted(k for k in values if k not in required)))
+    if args.list or absent or not args.out:
+        print("required:", ", ".join(required))
+        print("set:", ", ".join(f"{k}={values[k]!r}" for k in required if values.get(k)))
+        print("optional:", ", ".join(sorted(k for k in values if k not in required)))
         if absent:
-            sys.exit(f"missing: {', '.join(absent)}")
+            sys.exit(f"missing: {', '.join(absent)} (use --set or the defaults file)")
+        if not args.out and not args.list:
+            sys.exit("--out is required")
         return
 
     out: Path = args.out.expanduser().resolve()
     if out.exists() and any(out.iterdir()):
         sys.exit(f"{out} exists and is not empty; refusing to overwrite")
 
-    sources = [ROOT / "common", ROOT / "types" / args.type]
+    sources = [ROOT / "common", type_dir]
     if args.mode == "autopilot":
         sources.append(ROOT / "modes" / "autopilot")
     skip = {"type.json"}
@@ -140,9 +207,8 @@ def main() -> None:
     for rel, src in collect(sources, skip).items():
         target = out / substitute(rel, values, missing)
         target.parent.mkdir(parents=True, exist_ok=True)
-        data = src.read_bytes()
         try:
-            text = data.decode("utf-8")
+            text = src.read_bytes().decode("utf-8")
         except UnicodeDecodeError:
             shutil.copyfile(src, target)
         else:
@@ -150,7 +216,7 @@ def main() -> None:
         shutil.copymode(src, target)
         written += 1
 
-    print(f"rendered {written} files into {out} ({args.type}, mode {args.mode})")
+    print(f"rendered {written} files into {out} ({args.type}, mode {args.mode}, owner {values['OWNER']})")
     if missing:
         print("WARNING: unresolved placeholders:", ", ".join(sorted(missing)))
     todos = [

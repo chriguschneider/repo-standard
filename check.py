@@ -39,6 +39,10 @@ def detect_type(repo: Path) -> str | None:
         return "ha-integration"
     if (repo / "hacs.json").is_file() and (repo / "package.json").is_file():
         return "lovelace-card"
+    if (repo / "pyproject.toml").is_file() and (repo / "src").is_dir():
+        return "python"
+    if (repo / "VERSION").is_file() and (repo / "scripts" / "check.sh").is_file():
+        return "generic"
     return None
 
 
@@ -57,11 +61,16 @@ def local_checks(repo: Path) -> None:
         "Dependabot": (".github/dependabot.yml", "package-ecosystem"),
         "label workflow (agent:go)": (".github/workflows/claude-labeled.yml", "agent:go"),
         "mention workflow with author gate": (".github/workflows/claude-mention.yml", "author_association"),
-        "reviewer with CI watch": (".github/workflows/claude-review.yml", "deadlocking"),
         ".gitignore keeps CLAUDE.md local": (".gitignore", "CLAUDE.md"),
     }
     for what, (rel, needle) in files.items():
         report(needle in text(repo / rel), "repo", what)
+
+    # Mode `minimal` (no branch protection) deliberately has no reviewer.
+    mode = re.search(r"runs in mode \*\*`([\w-]+)`", text(repo / "docs/agent-automation.md"))
+    if not (mode and mode.group(1) == "minimal"):
+        body = text(wf / "claude-review.yml")
+        report("deadlocking" in body, "repo", "reviewer with CI watch")
 
     pick = text(repo / ".github/scripts/pick-model.sh")
     if not pick:
