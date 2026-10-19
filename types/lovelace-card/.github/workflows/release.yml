@@ -59,7 +59,8 @@ jobs:
       - name: Rebuild and compare with the committed bundle
         run: |
           npm run build
-          if ! git diff --quiet -- dist/; then
+          # status, not diff: also catches a bundle that was never committed.
+          if [ -n "$(git status --porcelain -- dist/)" ]; then
             echo "::error::dist/ at this tag does not match src/. Rebuild, commit, re-tag."
             exit 1
           fi

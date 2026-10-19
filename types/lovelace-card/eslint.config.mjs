@@ -11,7 +11,8 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.browser } },
   },
   {
+    // Node for the metadata tests, browser for the jsdom ones.
     files: ['tests/**/*.js'],
-    languageOptions: { globals: { ...globals.node } },
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 );
