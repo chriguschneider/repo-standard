@@ -26,6 +26,19 @@ added test coverage, and prose/style tweaks.
 3. Land it in the same PR as the code it describes, and add it to the
    index below.
 
+## Changing an accepted ADR
+
+Do not rewrite it. Append a section and keep the original text:
+
+```
+## Amendment YYYY-MM-DD (#issue)
+
+What changed and why. Decided by: <owner | ADR-NNNN>.
+```
+
+A decision that reverses the ADR gets a new ADR, and the old one's status
+becomes `Superseded by ADR-NNNN`.
+
 ## Index
 
 - [0001 — Quality gates, release process and agent automation from repo-standard](0001-quality-gates-and-agent-automation.md)

@@ -20,6 +20,9 @@ When the two disagree, that file wins.
   promoted, a coverage floor, a new required check — ADR-0001.
 - A **new platform** or a **new public config/option key** (hard to remove).
 - A **pattern deviation** from an accepted ADR.
+- The **same logic in a second language or place** (a parser in Python and
+  in JS, a table in code and in docs): propose one written spec plus a
+  shared golden-fixture test both sides run.
 
 ## Skip
 

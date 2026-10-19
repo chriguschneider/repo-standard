@@ -63,19 +63,18 @@ CI runs on every push. If you iterate with several pushes, open the PR as
 a **draft** until you expect CI to pass, then mark ready. Direct push to
 `@@BRANCH@@` is not the flow; open a PR.
 
-### Changelog entries
+@@CHANGELOG_RULES@@
 
-Every PR that changes user-visible behavior adds an entry to
-`CHANGELOG.md` under `## [Unreleased]` in the right subsection
-(Added/Changed/Deprecated/Removed/Fixed/Security, per
-[Keep a Changelog](https://keepachangelog.com/en/1.0.0/)).
+### Generated files and data
 
-**Exemption:** a fix for a feature that never appeared in a released
-version needs no entry — it has no user-visible before-state.
-
-The release commit (`chore(release): vX.Y.Z`) renames `## [Unreleased]`
-to `## [vX.Y.Z] — YYYY-MM-DD`; the release workflow extracts that section
-verbatim as the GitHub release notes.
+- A committed build output (bundle, generated table, PDF) has a CI check
+  that it matches its sources, and is regenerated in the same commit as
+  the source change. On a rebase conflict, regenerate; never hand-merge it.
+- Test fixtures are trimmed real files (keep the real header, encoding and
+  a handful of rows), never hand-written. `tests/README.md` says where each
+  one was cut from.
+- Domain data (lookup tables, codes, thresholds) cites its source:
+  `docs/upstream.md`, a URL or a fixture. Nothing is invented.
 
 ### Architectural decisions
 
@@ -135,3 +134,5 @@ break one of these.
 ### Testing
 
 @@TESTING@@
+
+@@TYPE_RULES@@

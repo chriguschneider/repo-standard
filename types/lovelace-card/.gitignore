@@ -7,6 +7,6 @@ coverage/
 
 # dist/ is committed on purpose: HACS serves it and CI checks it matches src.
 
-# Machine-local Claude notes (shared conventions live in AGENTS.md)
-/CLAUDE.md
+# Machine-local Claude notes (shared conventions: AGENTS.md, via CLAUDE.md)
+CLAUDE.local.md
 .claude/settings.local.json

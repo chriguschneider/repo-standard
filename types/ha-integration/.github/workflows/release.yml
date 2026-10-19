@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: read # check the CI result of the tagged commit
 
 jobs:
   release:
@@ -23,6 +24,16 @@ jobs:
           # The annotated tag object carries the release title (see below),
           # and it is not present in a shallow clone of the commit alone.
           fetch-depth: 0
+
+      - name: CI passed on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ok="$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId --jq length)"
+          if [ "$ok" = "0" ]; then
+            echo "::error::No green CI run for $GITHUB_SHA. Tag a commit that passed CI on the default branch."
+            exit 1
+          fi
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:

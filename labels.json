@@ -50,5 +50,9 @@
   "agent:untrusted-ok": [
     "d93f0b",
     "Owner reviewed this third-party issue text; the agent may act on it"
+  ],
+  "tracking": [
+    "bfdadc",
+    "Tracking or research issue; agents never work it"
   ]
 }

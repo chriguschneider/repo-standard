@@ -17,6 +17,8 @@ Values, later wins:
      {"OWNER": "octocat", "AUTHOR": "Mona Lisa", "FUNDING_URL": "https://..."},
   4. ``types/<type>/type.json`` -> ``placeholders``,
   5. ``types/<type>/_snippets/<KEY>.md`` (one file per multi-line value),
+     then the same for each ``--variant`` (``type.json`` -> ``variants``,
+     files in ``types/<type>/variants/<name>/``, overlaid on the type),
   6. ``--set KEY=VALUE`` on the command line.
 
 A placeholder alone on its line is replaced by the value's lines, each with
@@ -46,6 +48,24 @@ MODES = ("minimal", "opt-in", "autopilot")
 # Workflows that only make sense with branch protection + auto-merge.
 REVIEW_ONLY = {".github/workflows/claude-review.yml"}
 IDENTITY = ("OWNER", "AUTHOR")
+CHANGELOG_RULES = """### Changelog entries
+
+Every PR that changes user-visible behavior adds an entry to
+`CHANGELOG.md` under `## [Unreleased]` in the right subsection
+(Added/Changed/Deprecated/Removed/Fixed/Security, per
+[Keep a Changelog](https://keepachangelog.com/en/1.0.0/)).
+
+**Exemption:** a fix for a feature that never appeared in a released
+version needs no entry — it has no user-visible before-state.
+
+Write entries for users: would they click *Update* because of this line?
+HACS and release pages show the section as is. Internal work (refactors,
+CI, tests) goes in a short *Under the hood* list at the end of the section,
+or nowhere.
+
+The release commit (`chore(release): vX.Y.Z`) renames `## [Unreleased]`
+to `## [vX.Y.Z] — YYYY-MM-DD`; the release workflow extracts that section
+verbatim as the GitHub release notes."""
 
 
 def load_type(name: str) -> dict:
@@ -134,7 +154,7 @@ def collect(sources: list[Path], skip: set[str]) -> dict[str, Path]:
             if path.is_dir():
                 continue
             rel = path.relative_to(src).as_posix()
-            if rel in skip or rel.startswith("_snippets/"):
+            if rel in skip or rel.startswith(("_snippets/", "variants/")):
                 continue
             files[rel] = path
     return files
@@ -144,6 +164,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--type", required=True, help="see types/")
     ap.add_argument("--mode", choices=MODES, default="opt-in")
+    ap.add_argument("--variant", action="append", default=[], help="see type.json -> variants")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     ap.add_argument("--list", action="store_true", help="print the placeholders and exit")
@@ -162,11 +183,34 @@ def main() -> None:
         # harden-runner: `audit` until a few agent runs show every endpoint,
         # then `--set EGRESS_POLICY=block` (or edit the workflows).
         "EGRESS_POLICY": "audit",
+        # How the reviewer may fix things; types that build artifacts the
+        # reviewer cannot rebuild override it.
+        # AGENTS.md section on the changelog; types without tag releases
+        # (website) replace it.
+        "CHANGELOG_RULES": CHANGELOG_RULES,
+        "CHANGELOG_GUARD_RULE": (
+            "**Changelog** — a user-visible change adds an entry under\n"
+            "  `## [Unreleased]`."
+        ),
+        # Type-specific pitfalls for AGENTS.md (e.g. Home Assistant quirks).
+        "TYPE_RULES": "",
+        "REVIEW_FIX_RULE": (
+            "2. FIX substantive problems yourself on the PR branch (commit +\n"
+            "   push; CI re-runs on your push). **At most 3 fix rounds.** Do not\n"
+            "   fix pure style nits. Never push to the default branch."
+        ),
     }
     values.update(detected_identity())
     values.update(user_defaults())
     values.update(spec.get("placeholders", {}))
     values.update(snippets(type_dir))
+    known = spec.get("variants", {})
+    for name in args.variant:
+        if name not in known:
+            sys.exit(f"unknown variant {name!r} for {args.type}; known: {', '.join(known) or 'none'}")
+        values.update(known[name].get("placeholders", {}))
+        values.update(snippets(type_dir / "variants" / name))
+    values["VARIANTS"] = ", ".join(args.variant) or "none"
     for item in args.set:
         key, sep, value = item.partition("=")
         if not sep:
@@ -199,9 +243,14 @@ def main() -> None:
         sys.exit(f"{out} exists and is not empty; refusing to overwrite")
 
     sources = [ROOT / "common", type_dir]
+    sources += [type_dir / "variants" / name for name in args.variant]
     if args.mode == "autopilot":
         sources.append(ROOT / "modes" / "autopilot")
-    skip = {"type.json"}
+    # A type (or variant) can drop common files it has no use for, e.g. a
+    # website without tag releases has no CHANGELOG.md.
+    skip = {"type.json", *spec.get("skip", [])}
+    for name in args.variant:
+        skip |= set(known[name].get("skip", []))
     if args.mode == "minimal":
         skip |= REVIEW_ONLY
 
@@ -219,7 +268,7 @@ def main() -> None:
         shutil.copymode(src, target)
         written += 1
 
-    print(f"rendered {written} files into {out} ({args.type}, mode {args.mode}, owner {values['OWNER']})")
+    print(f"rendered {written} files into {out} ({args.type}, mode {args.mode}, variants {values['VARIANTS']}, owner {values['OWNER']})")
     if missing:
         print("WARNING: unresolved placeholders:", ", ".join(sorted(missing)))
     todos = [

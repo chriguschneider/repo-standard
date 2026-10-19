@@ -82,8 +82,8 @@ def local_checks(repo: Path) -> None:
     report((repo / ".claude/ci-settings.json").is_file(), "repo", "agent CI settings (.claude/ci-settings.json)")
     report((repo / ".claude/hooks/protect-paths.py").is_file(), "repo", "path guard hook (.claude/hooks/protect-paths.py)")
     if (wf / "claude-labeled.yml").is_file():
-        report((repo / ".github/scripts/save-wip.sh").is_file(), "repo", "save-wip.sh (keeps work when a run hits the limit)")
-        report("save-wip.sh" in text(wf / "claude-labeled.yml"), "repo", "claude-labeled.yml saves unfinished work")
+        report((repo / ".github/scripts/after-agent-run.sh").is_file(), "repo", "after-agent-run.sh (keeps work, hands over to the reviewer)")
+        report("after-agent-run.sh" in text(wf / "claude-labeled.yml"), "repo", "claude-labeled.yml saves unfinished work")
         report("author_association" in text(wf / "claude-labeled.yml"), "repo", "claude-labeled.yml only works trusted issue text")
     if (wf / "claude-review.yml").is_file():
         body = text(wf / "claude-review.yml")

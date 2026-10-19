@@ -5,6 +5,10 @@ on:
     branches: [@@BRANCH@@]
   pull_request:
   workflow_dispatch:
+  # Weekly, so tool or upstream drift (a new hassfest rule, a dependency)
+  # turns CI red even without commits; ci-watch.yml opens an issue.
+  schedule:
+    - cron: "23 4 * * 1"
 
 permissions:
   contents: read
