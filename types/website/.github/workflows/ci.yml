@@ -1,0 +1,59 @@
+name: CI
+
+# The site is deployed by Cloudflare Pages' Git integration, not from here:
+# Pages builds `@@BRANCH@@` (the preview) and `@@PRODUCTION_BRANCH@@` (production) on every
+# push with the same `npm run build`. This workflow is the required check
+# that gates merges into `@@BRANCH@@` and the fast-forward of `@@PRODUCTION_BRANCH@@`
+# (AGENTS.md, "Release procedure"). No secrets, no deploy.
+
+on:
+  push:
+    branches: [@@BRANCH@@, @@PRODUCTION_BRANCH@@]
+  pull_request:
+  workflow_dispatch:
+  # Weekly, so tool or upstream drift (a new Astro release, a dependency)
+  # turns CI red even without commits; ci-watch.yml opens an issue.
+  schedule:
+    - cron: "23 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Astro's anonymous usage telemetry phones home on every build.
+  ASTRO_TELEMETRY_DISABLED: "1"
+
+jobs:
+  build:
+    name: Build and check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # The same file Cloudflare Pages reads, so CI builds with its Node.
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Security audit
+        # High/critical advisories fail the build; the rest arrive as
+        # Dependabot PRs.
+        run: npm audit --audit-level=high
+      - name: Build (astro check, astro build, link and CSP checks)
+        # The exact command Cloudflare Pages runs.
+        run: npm run build
+      - name: A preview build is closed to search engines
+        # CF_PAGES_BRANCH is what Cloudflare sets; any branch but
+        # @@PRODUCTION_BRANCH@@ is a preview (PREVIEW in src/config.ts).
+        env:
+          CF_PAGES_BRANCH: "@@BRANCH@@"
+        run: |
+          npx astro build
+          grep -qx 'Disallow: /' dist/robots.txt || { echo "::error::preview robots.txt does not disallow everything"; exit 1; }
+          grep -q '<meta name="robots" content="noindex' dist/index.html || { echo "::error::preview pages lack the noindex tag"; exit 1; }

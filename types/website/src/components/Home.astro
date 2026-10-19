@@ -1,0 +1,39 @@
+---
+// One component per page, rendered by a one-line route per language
+// (src/pages/index.astro, src/pages/en/index.astro). The language comes
+// from the route via Astro.currentLocale.
+import Base from '../layouts/Base.astro';
+import { dictionary, localeOf } from '../i18n';
+import { postUrl, posts } from '../lib/posts';
+
+const locale = localeOf(Astro.currentLocale);
+const t = dictionary(locale);
+// Every language's posts, each marked with its language where it differs.
+const list = await posts();
+---
+
+<Base>
+  <h1>{t.home.heading}</h1>
+  <p>{t.home.intro}</p>
+
+  <h2>{t.home.postsHeading}</h2>
+  {
+    list.length === 0 ? (
+      <p>{t.home.noPosts}</p>
+    ) : (
+      <ul>
+        {list.map((post) => (
+          <li>
+            <a href={postUrl(post)} hreflang={post.data.lang}>
+              {post.data.title}
+            </a>
+            {post.data.lang !== locale && <span lang={post.data.lang}> ({dictionary(post.data.lang).languageName})</span>}
+            {post.data.draft && <span class="draft-mark"> {t.post.draft}</span>}
+            <br />
+            {post.data.description}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</Base>
