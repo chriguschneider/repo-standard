@@ -16,11 +16,12 @@ jobs:
     name: Verify tag and publish release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
 
@@ -80,10 +81,10 @@ jobs:
           # Read via the API: actions/checkout force-overwrites the
           # triggering tag locally, so its message is unreachable with git.
           subject=""
-          ref="repos/${{ github.repository }}/git/ref/tags/$TAG"
+          ref="repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG"
           if [ "$(gh api "$ref" --jq '.object.type')" = "tag" ]; then
             sha="$(gh api "$ref" --jq '.object.sha')"
-            subject="$(gh api "repos/${{ github.repository }}/git/tags/$sha" --jq '.message' | head -1)"
+            subject="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq '.message' | head -1)"
           fi
           subject="${subject#"$TAG"}"
           subject="${subject#" — "}"

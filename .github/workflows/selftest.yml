@@ -25,9 +25,11 @@ jobs:
           - { type: ha-integration, mode: autopilot, domain: demo_thing }
           - { type: lovelace-card, mode: opt-in, domain: demo-card }
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
 
@@ -49,6 +51,11 @@ jobs:
         run: |
           bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
           cd "$RUNNER_TEMP/demo" && "$GITHUB_WORKSPACE/actionlint" -color
+
+      - name: zizmor (workflow security)
+        run: |
+          pip install zizmor==1.31.1
+          cd "$RUNNER_TEMP/demo" && zizmor --persona regular --no-progress .
 
       - name: Checks (generic)
         if: matrix.type == 'generic'
@@ -74,7 +81,7 @@ jobs:
           rm -rf .pytest_cache
           docker run --rm -v "$PWD":/github/workspace ghcr.io/home-assistant/hassfest
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: matrix.type == 'lovelace-card'
         with:
           node-version: "22"

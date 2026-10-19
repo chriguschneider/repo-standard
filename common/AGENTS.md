@@ -97,8 +97,9 @@ Claude Code users get automatic prompts via the repo-local skills in
 Opt-in, draft-PR-only (see [`docs/agent-automation.md`](docs/agent-automation.md)):
 add the **`agent:go`** label to hand an issue to Claude, or write
 **@claude** in a comment (owner/collaborators only). The model comes from
-the issue's labels via `.github/scripts/pick-model.sh`. The agent cannot
-modify `.github/workflows/`.
+the issue's labels via `.github/scripts/pick-model.sh`. Unattended runs
+use a tool allowlist, cannot write to `.github/` or `.claude/` (path guard
+hook), and only act on issue text from people with write access.
 
 ---
 

@@ -1,13 +1,54 @@
 {
-  "P1": ["d73a4a", "Blocks a release / bites users soon"],
-  "P2": ["e99695", "Real but less urgent"],
-  "P3": ["fbca04", "Hygiene / minor"],
-  "agent:go": ["0e8a16", "Hand this issue to the Claude agent"],
-  "agent:in-progress": ["fbca04", "Claimed by an unattended Claude run"],
-  "agent:opus": ["6f42c1", "Force Opus for this issue"],
-  "agent:sonnet": ["1d76db", "Force Sonnet for this issue"],
-  "agent:haiku": ["c5def5", "Force Haiku for this issue"],
-  "needs-verification": ["d93f0b", "Hold: needs a human check before merge (blocks auto-merge)"],
-  "tests": ["5319e7", "Test suite"],
-  "release": ["bfdadc", "Release readiness"]
+  "P1": [
+    "d73a4a",
+    "Blocks a release / bites users soon"
+  ],
+  "P2": [
+    "e99695",
+    "Real but less urgent"
+  ],
+  "P3": [
+    "fbca04",
+    "Hygiene / minor"
+  ],
+  "agent:go": [
+    "0e8a16",
+    "Hand this issue to the Claude agent"
+  ],
+  "agent:in-progress": [
+    "fbca04",
+    "Claimed by an unattended Claude run"
+  ],
+  "agent:opus": [
+    "6f42c1",
+    "Force Opus for this issue"
+  ],
+  "agent:sonnet": [
+    "1d76db",
+    "Force Sonnet for this issue"
+  ],
+  "agent:haiku": [
+    "c5def5",
+    "Force Haiku for this issue"
+  ],
+  "needs-verification": [
+    "d93f0b",
+    "Hold: needs a human check before merge (blocks auto-merge)"
+  ],
+  "tests": [
+    "5319e7",
+    "Test suite"
+  ],
+  "release": [
+    "bfdadc",
+    "Release readiness"
+  ],
+  "agent:needs-continuation": [
+    "fbca04",
+    "An agent run ended before finishing; its work was saved to this draft PR"
+  ],
+  "agent:untrusted-ok": [
+    "d93f0b",
+    "Owner reviewed this third-party issue text; the agent may act on it"
+  ]
 }

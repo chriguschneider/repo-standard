@@ -14,7 +14,6 @@
     "LINKS": "",
     "CHECKS_INLINE": "`bash scripts/check.sh`",
     "AGENT_CHECKS": "`bash scripts/check.sh` (extend it in the same PR when the change\nadds something checkable: a linter, tests, a build).",
-    "REVIEW_CHECKS": "`bash scripts/check.sh`.",
     "HOLD_EXAMPLES": "e.g. changes to how the repo is used or deployed",
     "VERSION_SYNC_RULE": "`VERSION` and the changelog must agree (a `## [vX.Y.Z]` section and link for the version in `VERSION`). Flag a bump of one without the other.",
     "BUG_LOGS_HINT": "Relevant output or error messages.",
@@ -22,7 +21,9 @@
     "STRUCTURE": "VERSION              # the released version, single source of truth\nscripts/check.sh     # every check CI and the agents run; grows with the repo\ndocs/adr/            # decisions",
     "RELEASE_STEPS": "Releases are automated via tag push (`.github/workflows/release.yml`, ADR-0001):\n\n1. **Update version and changelog**: bump `VERSION`. Rename\n   `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD`, add a fresh empty\n   `## [Unreleased]` and the link definition. Commit as\n   `chore(release): vX.Y.Z`.\n2. **Verify**: `bash scripts/check.sh`.\n3. **Tag** with an **annotated** tag: `git tag -a vX.Y.Z -m \"what changed\"`.\n4. **Push**: `git push origin vX.Y.Z`. The workflow verifies the tag\n   against `VERSION`, extracts the notes and creates the release.",
     "TESTING": "- **All checks**: `bash scripts/check.sh` — the same script CI runs.\n- When the repo gains a linter, tests or a build, add them to\n  `scripts/check.sh` instead of a new CI job, so agents and humans run\n  exactly what CI runs.",
-    "RELEASE_ASSETS": ""
+    "RELEASE_ASSETS": "",
+    "AGENT_TOOLS": "Bash(bash scripts/check.sh*),Bash(shellcheck*)",
+    "EGRESS_EXTRA": ""
   },
   "required_checks": [
     "Checks"

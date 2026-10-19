@@ -28,7 +28,14 @@ Adopt the standard as rendered on @@DATE@@ (type `@@TYPE@@`, mode
   or holds with `needs-verification` (not in mode `minimal`), and in mode
   `autopilot` a backlog grind over P-labelled issues, one PR at a time.
   All of them skip themselves while `CLAUDE_CODE_OAUTH_TOKEN` is absent.
-  The agent token cannot touch `.github/workflows/`.
+- **Agent guardrails**: a tool allowlist (`--permission-mode dontAsk`,
+  never `--dangerously-skip-permissions`), deny rules and a path guard hook
+  for `.github/` and `.claude/` (`.claude/ci-settings.json`), only trusted
+  issue text, harden-runner on every agent job, a reviewer that reads CI
+  instead of running PR-controlled code, a deterministic hold for
+  sensitive paths, and unfinished work saved to a draft PR.
+- **Every action pinned by commit SHA**, updated by Dependabot after a
+  cooldown.
 - Models are picked by alias (`opus`, `sonnet`, `haiku`), not by pinned
   ID, so the workflows do not go stale with every model release.
 

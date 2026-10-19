@@ -9,12 +9,11 @@
   "placeholders": {
     "TYPE": "python",
     "CODEQL_LANGUAGE": "python",
-    "DEPENDABOT_EXTRA": "- package-ecosystem: \"pip\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"",
+    "DEPENDABOT_EXTRA": "- package-ecosystem: \"pip\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    pip-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"",
     "BADGES": "",
     "LINKS": "",
     "CHECKS_INLINE": "`ruff check src tests`, `pytest -q`",
     "AGENT_CHECKS": "`pip install -e \".[test]\"`, `ruff check src tests`, `pytest -q`.",
-    "REVIEW_CHECKS": "`pip install -e \".[test]\"`, `ruff check src tests`, `pytest -q`.",
     "HOLD_EXAMPLES": "e.g. a changed command-line interface or public API that users script against",
     "VERSION_SYNC_RULE": "`pyproject.toml` `version` and `__version__` in `src/@@DOMAIN@@/__init__.py` must match. Flag a diff that changes one without the other.",
     "BUG_LOGS_HINT": "The full command and its output (with `--verbose` if available).",
@@ -22,7 +21,9 @@
     "STRUCTURE": "src/@@DOMAIN@@/\n├── __init__.py      # __version__\n└── __main__.py      # command-line entry point (`@@REPO@@`)\ntests/               # pytest, never hits the network\ndocs/adr/            # decisions\npyproject.toml       # metadata, version, ruff, pytest",
     "RELEASE_STEPS": "Releases are automated via tag push (`.github/workflows/release.yml`, ADR-0001):\n\n1. **Update version and changelog**: bump `version` in `pyproject.toml`\n   and `__version__` in `src/@@DOMAIN@@/__init__.py`. Rename\n   `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD`, add a fresh empty\n   `## [Unreleased]` and the link definition. Commit as\n   `chore(release): vX.Y.Z`.\n2. **Verify**: `pytest -q tests/test_metadata.py`.\n3. **Tag** with an **annotated** tag: `git tag -a vX.Y.Z -m \"what changed\"`.\n4. **Push**: `git push origin vX.Y.Z`. The workflow verifies the tag\n   against `pyproject.toml`, builds sdist and wheel and attaches them to\n   the release.",
     "TESTING": "- `pip install -e \".[test]\"` once (in a virtualenv).\n- **Lint**: `ruff check src tests`.\n- **Tests**: `pytest -q`. `tests/test_metadata.py` guards version sync\n  and the changelog. Tests never hit the network; recorded responses go\n  to `tests/fixtures/`.",
-    "RELEASE_ASSETS": "dist/*"
+    "RELEASE_ASSETS": "dist/*",
+    "AGENT_TOOLS": "Bash(pip install -e*),Bash(python -m pip install -e*),Bash(ruff check*),Bash(ruff format*),Bash(pytest*),Bash(python -m pytest*)",
+    "EGRESS_EXTRA": "pypi.org:443\nfiles.pythonhosted.org:443"
   },
   "required_checks": [
     "Python lint + tests"
