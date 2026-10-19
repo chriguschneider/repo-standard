@@ -1,0 +1,110 @@
+name: Upstream smoke test
+
+# Weekly: does the real upstream still answer in the shape this integration
+# parses? Nothing in the repo breaks when upstream changes its format; the
+# parser just quietly returns nothing, and the first to notice is a user.
+# This is the tripwire.
+#
+# Deliberately NOT a PR check: upstream drift is not a regression in a pull
+# request, and an upstream outage must not block development. On failure it
+# opens (or comments on) ONE issue without a P-label, so the autopilot leaves
+# it to a human. GitHub disables cron on repos without activity for 60 days;
+# if this stops running, that is why.
+
+on:
+  schedule:
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: smoke-test
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Upstream smoke test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      TITLE: "Upstream smoke test failed"
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      # No secrets, no install: the script is stdlib-only (urllib). If it
+      # ever needs the integration's client, add `pip install aiohttp` here,
+      # not the full test requirements.
+      - name: Run the smoke test
+        id: smoke
+        env:
+          # The script prints ✓/✗. On a stdout that is not UTF-8 the print
+          # itself raises and the run reports drift that did not happen.
+          PYTHONIOENCODING: utf-8
+        run: |
+          set +e
+          python tests/tools/smoke_test.py 2>&1 | tee smoke.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Open or update the smoke-test issue
+        if: steps.smoke.outputs.exit_code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          {
+            echo "The weekly upstream smoke test failed."
+            echo
+            echo "- Run: $RUN_URL"
+            echo "- Date: $(date -u +%Y-%m-%dT%H:%MZ)"
+            echo
+            echo '```'
+            tail -c 4000 smoke.log
+            echo '```'
+            echo
+            echo "Upstream changed or is down; this is not a regression in the repo. Check what the API returns now (docs/upstream.md) before touching the parser."
+          } > body.md
+          existing="$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$TITLE\" in:title" --json number,title \
+            | jq -r --arg t "$TITLE" 'map(select(.title == $t)) | .[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" -R "$GITHUB_REPOSITORY" --body-file body.md
+          else
+            # `tracking`, never a P-label: agents do not work it, a human
+            # triages it. Without the label (github-setup.py not run yet)
+            # the issue is opened bare rather than not at all.
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$TITLE" --body-file body.md --label tracking \
+              || gh issue create -R "$GITHUB_REPOSITORY" --title "$TITLE" --body-file body.md
+          fi
+
+      - name: Note recovery on the open issue
+        if: steps.smoke.outputs.exit_code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$TITLE\" in:title" --json number,title \
+            | jq -r --arg t "$TITLE" 'map(select(.title == $t)) | .[0].number // empty')"
+          if [ -n "$existing" ]; then
+            # Left open on purpose: passing again does not prove the format
+            # is unchanged (an empty answer passes too). A human closes it.
+            gh issue comment "$existing" -R "$GITHUB_REPOSITORY" \
+              --body "Smoke test passed again on $(date -u +%Y-%m-%d): $RUN_URL. Left open until a human has confirmed the format still matches docs/upstream.md."
+          fi
+
+      - name: Fail the job if the smoke test failed
+        if: steps.smoke.outputs.exit_code != '0'
+        env:
+          EXIT_CODE: ${{ steps.smoke.outputs.exit_code }}
+        run: |
+          echo "::error::Smoke test exited $EXIT_CODE; see the issue \"$TITLE\"."
+          exit 1

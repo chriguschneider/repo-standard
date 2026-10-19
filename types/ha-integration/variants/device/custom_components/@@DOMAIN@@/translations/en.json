@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "@@NAME@@",
+        "description": "Enter the address of the device on your network.",
+        "data": {
+          "host": "Host"
+        },
+        "data_description": {
+          "host": "IP address or hostname, e.g. 192.168.1.50."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect. Is the device switched on and the address right?",
+      "not_supported": "No supported device answers at this address.",
+      "unknown": "Unexpected error, see the log."
+    },
+    "abort": {
+      "already_configured": "This device is already configured; its address was updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "@@NAME@@ options",
+        "data": {
+          "update_interval": "Update interval (minutes)"
+        },
+        "data_description": {
+          "update_interval": "How often the device is polled."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Status"
+      }
+    }
+  }
+}

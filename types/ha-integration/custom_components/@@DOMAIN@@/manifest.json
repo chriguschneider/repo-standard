@@ -3,12 +3,12 @@
   "name": "@@NAME@@",
   "codeowners": ["@@@OWNER@@"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [@@HA_DEPENDENCIES@@],
   "documentation": "https://github.com/@@OWNER@@/@@REPO@@",
   "integration_type": "@@INTEGRATION_TYPE@@",
   "iot_class": "@@IOT_CLASS@@",
   "issue_tracker": "https://github.com/@@OWNER@@/@@REPO@@/issues",
   "requirements": [],
-  "single_config_entry": true,
+  @@SINGLE_CONFIG_ENTRY@@
   "version": "0.0.1"
 }

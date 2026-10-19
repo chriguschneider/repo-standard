@@ -167,6 +167,15 @@ jobs:
             echo "::error::__pycache__ leaked into the release asset."
             exit 1
           fi
+          # Exactly the tracked files of the integration, subfolders included
+          # (brand/, translations/, a bundled frontend/): a missing file breaks
+          # installs, an extra one is something nobody reviewed.
+          (cd custom_components/@@DOMAIN@@ && git ls-files | sort) > expected.txt
+          unzip -Z1 @@DOMAIN@@.zip | sed 's|^\./||' | grep -v '/$' | sort > actual.txt
+          if ! diff -u expected.txt actual.txt; then
+            echo "::error::The zip does not hold exactly the tracked files of custom_components/@@DOMAIN@@ (diff above)."
+            exit 1
+          fi
 
       - name: Create the GitHub release
         env:

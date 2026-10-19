@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "@@NAME@@",
+        "description": "Gib die Adresse des Geräts in deinem Netzwerk ein.",
+        "data": {
+          "host": "Host"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname, z. B. 192.168.1.50."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Keine Verbindung. Ist das Gerät eingeschaltet und die Adresse richtig?",
+      "not_supported": "Unter dieser Adresse antwortet kein unterstütztes Gerät.",
+      "unknown": "Unerwarteter Fehler, siehe Protokoll."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits eingerichtet; die Adresse wurde aktualisiert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "@@NAME@@ – Optionen",
+        "data": {
+          "update_interval": "Aktualisierungsintervall (Minuten)"
+        },
+        "data_description": {
+          "update_interval": "Wie oft das Gerät abgefragt wird."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Status"
+      }
+    }
+  }
+}
