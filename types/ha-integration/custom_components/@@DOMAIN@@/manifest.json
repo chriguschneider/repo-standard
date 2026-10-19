@@ -1,0 +1,14 @@
+{
+  "domain": "@@DOMAIN@@",
+  "name": "@@NAME@@",
+  "codeowners": ["@@@OWNER@@"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/@@OWNER@@/@@REPO@@",
+  "integration_type": "@@INTEGRATION_TYPE@@",
+  "iot_class": "@@IOT_CLASS@@",
+  "issue_tracker": "https://github.com/@@OWNER@@/@@REPO@@/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.0.1"
+}

@@ -1,0 +1,12 @@
+node_modules/
+coverage/
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# dist/ is committed on purpose: HACS serves it and CI checks it matches src.
+
+# Machine-local Claude notes (shared conventions live in AGENTS.md)
+/CLAUDE.md
+.claude/settings.local.json

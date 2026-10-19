@@ -1,0 +1,23 @@
+# Tooling config for @@NAME@@.
+# No build system: this repo ships the integration as source.
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+# pyflakes, pycodestyle, bugbear, pyupgrade, import sorting. Import sorting
+# is on from the first commit so it never becomes a churn PR later.
+select = ["E", "F", "W", "B", "UP", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+# CI runs the `pytest` console script, which does not put the repo root on
+# sys.path. Tests import the integration package, so add the root.
+pythonpath = ["."]
+# pytest-homeassistant-custom-component needs this for its async fixtures.
+asyncio_mode = "auto"

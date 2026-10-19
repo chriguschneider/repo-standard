@@ -1,0 +1,8 @@
+{
+  "name": "@@NAME@@",
+  "content_in_root": false,
+  "render_readme": true,
+  "homeassistant": "@@HA_MIN@@",
+  "zip_release": true,
+  "filename": "@@DOMAIN@@.zip"
+}

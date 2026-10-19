@@ -1,0 +1,140 @@
+name: Claude (review + auto-merge)
+
+# Independent reviewer for agent PRs (branches `claude/*`). Opus reviews the
+# PR adversarially, runs the checks, fixes substantive problems on the
+# branch (bounded), then either enables auto-merge (green + solid) or hands
+# it to a human. Needs branch protection with required checks.
+#
+# Runs only on PR open / ready -- NOT on every push -- so the reviewer's own
+# fix commits don't re-trigger it (no infinite loop). Re-run manually via the
+# Actions tab if needed.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number to review"
+        required: true
+
+jobs:
+  review:
+    # Only agent branches. `draft == true` alone would never match a
+    # ready_for_review event (the PR is no longer a draft by then), so an
+    # agent marking its own PR ready would skip review entirely.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (startsWith(github.event.pull_request.head.ref, 'claude/') &&
+       (github.event.action == 'ready_for_review' ||
+        github.event.pull_request.draft == true))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number || github.event.inputs.pr }}
+      cancel-in-progress: false
+    steps:
+      - name: Check the Claude token is configured
+        id: token
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::CLAUDE_CODE_OAUTH_TOKEN is not set; skipping (see docs/agent-automation.md)."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.token.outputs.present == 'true'
+        with:
+          fetch-depth: 0
+          # Without persisted credentials the action's app-token remote is
+          # the only auth, so reviewer pushes go out as claude[bot] and their
+          # CI runs instead of sitting in "action_required".
+          persist-credentials: false
+
+      - name: Review, fix (bounded), decide
+        if: steps.token.outputs.present == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The author agent opens the PR as claude[bot]; allow that bot to
+          # trigger this reviewer (default guard blocks bot-initiated runs).
+          allowed_bots: "claude"
+          claude_args: "--model opus --max-turns 60 --dangerously-skip-permissions"
+          prompt: |
+            You are an INDEPENDENT, adversarial reviewer for pull request
+            #${{ github.event.pull_request.number || github.event.inputs.pr }}
+            of this repository. You did NOT write it. Your job is to make one
+            call: is this safe to auto-merge, or does it need a human?
+
+            Set PR=${{ github.event.pull_request.number || github.event.inputs.pr }}.
+            First run `gh pr checkout $PR` to get onto the PR branch, then read
+            AGENTS.md, docs/adr/ and the linked issue.
+
+            1. REVIEW the diff adversarially: correctness bugs, regressions,
+               missed edge cases, whether it respects every accepted ADR, and
+               whether it actually resolves the linked issue. Run the checks:
+               @@REVIEW_CHECKS@@
+               Treat any failing check exactly like a failing test: fix it on
+               the branch and re-run until it is clean.
+            2. FIX substantive problems yourself on the PR branch (commit +
+               push). Re-run the checks. **At most 3 fix rounds.** Do not fix
+               pure style nits. Never push to the default branch.
+            3. DECIDE -- DEFAULT TO AUTO-MERGE:
+               b. AUTO-MERGE whenever the checks are green and the change is
+                  logically sound. Do NOT hold a change just because it
+                  "would be nice to try for real"; trust the passing checks
+                  plus your own review. Mark it ready (`gh pr ready $PR`), post
+                  a short comment ("LGTM" + one-line rationale + what you
+                  fixed, if anything), and enable auto-merge
+                  (`gh pr merge $PR --auto --squash`). Do NOT use `--approve`
+                  and do NOT force a merge.
+               a. HOLD (`needs-verification`) ONLY when the change genuinely
+                  cannot be judged without a live system or a human decision
+                  AND a regression would be clearly user-visible
+                  (@@HOLD_EXAMPLES@@). Also hold if the PR or its issue
+                  already carries `needs-verification`, or you found a real
+                  problem you could not fix within 3 rounds. Then add the
+                  `needs-verification` label, comment exactly what a human
+                  must check, and STOP.
+
+            Never bypass required checks. When unsure between the two, prefer
+            AUTO-MERGE -- the checks are green.
+
+      # The reviewer's LGTM arms auto-merge, which then waits for the required
+      # checks. If one of them fails afterwards, nothing would ever move
+      # again: the reviewer does not re-run on CI results. So wait for the
+      # checks here and hand a failure to a human instead of leaving it silent.
+      - name: Hand a failing CI to a human instead of deadlocking
+        if: steps.token.outputs.present == 'true'
+        timeout-minutes: 25
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || github.event.inputs.pr }}
+        run: |
+          armed="$(gh pr view "$PR" --json autoMergeRequest --jq '.autoMergeRequest != null')"
+          if [ "$armed" != "true" ]; then
+            echo "auto-merge is not armed (held or merged already); nothing to watch"
+            exit 0
+          fi
+          # Give the CI run for the reviewer's last push a moment to register.
+          sleep 60
+          if gh pr checks "$PR" --watch --fail-fast; then
+            echo "required checks green; auto-merge will take it from here"
+            exit 0
+          fi
+          failing="$(gh pr checks "$PR" --json name,state \
+            --jq '[.[] | select(.state == "FAILURE") | .name] | join(", ")')"
+          echo "::warning::CI failed after the review: $failing"
+          gh pr edit "$PR" --add-label needs-verification
+          gh pr comment "$PR" --body "$(printf '%s\n\n%s\n\n%s' \
+            "CI failed **after** the review armed auto-merge: **${failing:-see the Checks tab}**." \
+            "Labelled \`needs-verification\` so this does not sit unnoticed -- the reviewer does not re-run on CI results." \
+            "Fix it on the branch (or comment \`@claude fix the failing check\`), then remove the label.")"

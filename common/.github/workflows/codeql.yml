@@ -1,0 +1,44 @@
+name: CodeQL
+
+# ADR-0001. A static security pass that is not a human reading a diff. The
+# weekly run matters because new CodeQL rules ship continuously.
+
+on:
+  push:
+    branches: [@@BRANCH@@]
+  pull_request:
+  schedule:
+    - cron: "15 2 * * 6"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [@@CODEQL_LANGUAGE@@]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - tests/fixtures
+              - dist
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

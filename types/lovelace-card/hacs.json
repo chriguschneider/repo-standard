@@ -1,0 +1,5 @@
+{
+  "name": "@@NAME@@",
+  "render_readme": true,
+  "filename": "@@DOMAIN@@.js"
+}

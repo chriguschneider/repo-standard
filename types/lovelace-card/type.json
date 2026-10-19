@@ -1,0 +1,43 @@
+{
+  "description": "Home Assistant Lovelace card (TypeScript + Lit, Rollup), distributed via HACS as a plugin.",
+  "required": [
+    "REPO",
+    "NAME",
+    "DESCRIPTION",
+    "DOMAIN"
+  ],
+  "placeholders": {
+    "TYPE": "lovelace-card",
+    "CODEQL_LANGUAGE": "javascript-typescript",
+    "DEPENDABOT_ECOSYSTEM": "npm",
+    "CHECKS_INLINE": "`npm run lint`, `npm run typecheck`, `npm test`, `npm run build`",
+    "AGENT_CHECKS": "`npm ci`, `npm run lint`, `npm run typecheck`, `npm test`,\n`npm run build` -- and commit the rebuilt `dist/` (CI fails when it is\nout of sync with `src/`).",
+    "REVIEW_CHECKS": "`npm ci`, `npm run lint`, `npm run typecheck`, `npm test`,\n`npm run build`, then `git diff --quiet -- dist/` (the committed bundle\nmust match the source).",
+    "HOLD_EXAMPLES": "e.g. visible layout changes, editor UX, config keys users put in their dashboards",
+    "VERSION_SYNC_RULE": "`package.json` `version` and `CARD_VERSION` in `src/const.ts` must match. Flag a diff that changes one without the other.",
+    "BUG_LOGS_HINT": "Browser console output (F12 → Console) and the card's YAML config.",
+    "BUG_ENVIRONMENT": "- **Home Assistant version**: (e.g., 2026.10.0)\n- **Card version**: (e.g., 0.1.0)\n- **Browser / device**: (e.g., Chrome 140, HA Companion app on Android)",
+    "STRUCTURE": "src/\n├── @@DOMAIN@@.ts   # the custom element, registered as <@@DOMAIN@@>\n└── const.ts        # CARD_VERSION, defaults\ntests/              # vitest, node environment\ndist/@@DOMAIN@@.js  # committed build output (HACS serves it)\ndocs/adr/           # decisions",
+    "RELEASE_STEPS": "Releases are automated via tag push (`.github/workflows/release.yml`, ADR-0001):\n\n1. **Update version and changelog**: bump `version` in `package.json`\n   and `CARD_VERSION` in `src/const.ts`, run `npm run build`. Rename\n   `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD`, add a fresh empty\n   `## [Unreleased]` and the link definition. Commit as\n   `chore(release): vX.Y.Z`.\n2. **Verify**: `npm test`.\n3. **Tag** with an **annotated** tag: `git tag -a vX.Y.Z -m \"what changed\"`.\n   A hyphenated tag (`v1.2.0-beta.1`) becomes a pre-release, which HACS\n   only offers behind \"Show beta versions\".\n4. **Push**: `git push origin vX.Y.Z`. The workflow verifies the tag,\n   extracts the notes and attaches `dist/@@DOMAIN@@.js` to the release.",
+    "TESTING": "- `npm ci` once.\n- **Lint**: `npm run lint`. **Types**: `npm run typecheck`.\n- **Tests**: `npm test` (vitest). Metadata tests guard version sync, the\n  changelog section and the HACS filename.\n- **Build**: `npm run build`, then commit `dist/`."
+  },
+  "required_checks": [
+    "HACS validation",
+    "Lint, typecheck, test, build"
+  ],
+  "labels": {
+    "area-card": [
+      "0e8a16",
+      "Card rendering and config"
+    ],
+    "area-editor": [
+      "1d76db",
+      "Visual config editor"
+    ]
+  },
+  "post_render": [
+    "npm install   # creates package-lock.json, commit it",
+    "npm run lint && npm run typecheck && npm test && npm run build",
+    "git add dist/ package-lock.json"
+  ]
+}

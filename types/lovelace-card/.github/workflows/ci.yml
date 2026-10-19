@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [@@BRANCH@@]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hacs:
+    name: HACS validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hacs/action@main
+        with:
+          category: plugin
+
+  build:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Security audit
+        # High/critical advisories fail the build; the rest arrive as
+        # Dependabot PRs.
+        run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Committed bundle matches source
+        # HACS serves dist/ from the repo, so it must be what src/ builds.
+        run: |
+          if ! git diff --quiet -- dist/; then
+            echo "::error::dist/ is out of sync with src/. Run 'npm run build' and commit the result."
+            git --no-pager diff --stat -- dist/
+            exit 1
+          fi
