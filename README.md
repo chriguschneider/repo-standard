@@ -28,6 +28,11 @@ and [`weather-station-card`](https://github.com/chriguschneider/weather-station-
   `needs-verification`; optionally an autopilot that works the P-labelled
   backlog one PR at a time. Everything skips itself until the
   `CLAUDE_CODE_OAUTH_TOKEN` secret exists.
+- **Guardrails** for agents that read untrusted text: a tool allowlist
+  instead of `--dangerously-skip-permissions`, a hook that blocks writes to
+  `.github/` and `.claude/`, egress control, SHA-pinned actions, a reviewer
+  that reads CI instead of running PR code, and unfinished runs saved to a
+  draft PR. zizmor and actionlint check every rendered type.
 
 ## Types and modes
 

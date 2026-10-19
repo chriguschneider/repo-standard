@@ -11,7 +11,6 @@
     "CODEQL_LANGUAGE": "javascript-typescript",
     "CHECKS_INLINE": "`npm run lint`, `npm run typecheck`, `npm test`, `npm run build`",
     "AGENT_CHECKS": "`npm ci`, `npm run lint`, `npm run typecheck`, `npm test`,\n`npm run build` -- and commit the rebuilt `dist/` (CI fails when it is\nout of sync with `src/`).",
-    "REVIEW_CHECKS": "`npm ci`, `npm run lint`, `npm run typecheck`, `npm test`,\n`npm run build`, then `git diff --quiet -- dist/` (the committed bundle\nmust match the source).",
     "HOLD_EXAMPLES": "e.g. visible layout changes, editor UX, config keys users put in their dashboards",
     "VERSION_SYNC_RULE": "`package.json` `version` and `CARD_VERSION` in `src/const.ts` must match. Flag a diff that changes one without the other.",
     "BUG_LOGS_HINT": "Browser console output (F12 → Console) and the card's YAML config.",
@@ -19,7 +18,9 @@
     "STRUCTURE": "src/\n├── @@DOMAIN@@.ts   # the custom element, registered as <@@DOMAIN@@>\n└── const.ts        # CARD_VERSION, defaults\ntests/              # vitest, node environment\ndist/@@DOMAIN@@.js  # committed build output (HACS serves it)\ndocs/adr/           # decisions",
     "RELEASE_STEPS": "Releases are automated via tag push (`.github/workflows/release.yml`, ADR-0001):\n\n1. **Update version and changelog**: bump `version` in `package.json`\n   and `CARD_VERSION` in `src/const.ts`, run `npm run build`. Rename\n   `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD`, add a fresh empty\n   `## [Unreleased]` and the link definition. Commit as\n   `chore(release): vX.Y.Z`.\n2. **Verify**: `npm test`.\n3. **Tag** with an **annotated** tag: `git tag -a vX.Y.Z -m \"what changed\"`.\n   A hyphenated tag (`v1.2.0-beta.1`) becomes a pre-release, which HACS\n   only offers behind \"Show beta versions\".\n4. **Push**: `git push origin vX.Y.Z`. The workflow verifies the tag,\n   extracts the notes and attaches `dist/@@DOMAIN@@.js` to the release.",
     "TESTING": "- `npm ci` once.\n- **Lint**: `npm run lint`. **Types**: `npm run typecheck`.\n- **Tests**: `npm test` (vitest). Metadata tests guard version sync, the\n  changelog section and the HACS filename.\n- **Build**: `npm run build`, then commit `dist/`.",
-    "DEPENDABOT_EXTRA": "- package-ecosystem: \"npm\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\""
+    "DEPENDABOT_EXTRA": "- package-ecosystem: \"npm\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    npm-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"",
+    "AGENT_TOOLS": "Bash(npm ci*),Bash(npm install*),Bash(npm run lint*),Bash(npm run typecheck*),Bash(npm run build*),Bash(npm test*),Bash(npx vitest*)",
+    "EGRESS_EXTRA": ""
   },
   "required_checks": [
     "HACS validation",

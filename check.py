@@ -79,10 +79,32 @@ def local_checks(repo: Path) -> None:
         pinned = re.findall(r'model="(claude-[^"]+)"', pick)
         report(not pinned, "repo", "pick-model.sh uses aliases" + (f" (pinned: {', '.join(sorted(set(pinned)))})" if pinned else ""), stale=bool(pinned))
 
+    report((repo / ".claude/ci-settings.json").is_file(), "repo", "agent CI settings (.claude/ci-settings.json)")
+    report((repo / ".claude/hooks/protect-paths.py").is_file(), "repo", "path guard hook (.claude/hooks/protect-paths.py)")
+    if (wf / "claude-labeled.yml").is_file():
+        report((repo / ".github/scripts/save-wip.sh").is_file(), "repo", "save-wip.sh (keeps work when a run hits the limit)")
+        report("save-wip.sh" in text(wf / "claude-labeled.yml"), "repo", "claude-labeled.yml saves unfinished work")
+        report("author_association" in text(wf / "claude-labeled.yml"), "repo", "claude-labeled.yml only works trusted issue text")
+    if (wf / "claude-review.yml").is_file():
+        body = text(wf / "claude-review.yml")
+        report("Hold sensitive paths" in body, "repo", "reviewer holds sensitive paths for a human")
+        report("pytest" not in body and "npm test" not in body, "repo", "reviewer does not run PR-controlled checks", stale=True)
+
+    unpinned = sorted({
+        f"{p.name}: {m.group(1)}"
+        for p in wf.glob("*.y*ml")
+        for m in re.finditer(r"^\s*-?\s*uses:\s*([^\s#]+)", text(p), re.M)
+        if not m.group(1).startswith("./") and not re.search(r"@[0-9a-f]{40}$", m.group(1))
+    })
+    report(not unpinned, "repo", "actions pinned by commit SHA" + (f" ({len(unpinned)} not: {', '.join(unpinned[:4])}{' …' if len(unpinned) > 4 else ''})" if unpinned else ""), stale=bool(unpinned))
+
     for path in sorted(wf.glob("claude-*.yml")):
         body = text(path)
         if "actions/checkout" in body:
             report("persist-credentials: false" in body, "repo", f"{path.name}: persist-credentials false")
+        if "claude-code-action" in body:
+            report("harden-runner" in body, "repo", f"{path.name}: harden-runner (egress)")
+            report("--dangerously-skip-permissions" not in body, "repo", f"{path.name}: tool allowlist instead of --dangerously-skip-permissions", stale="--dangerously-skip-permissions" in body)
         pinned = re.findall(r"--model (claude-[\w.-]+)", body)
         if pinned:
             report(False, "repo", f"{path.name}: pinned model {pinned[0]}", stale=True)

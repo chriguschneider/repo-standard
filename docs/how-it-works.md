@@ -49,13 +49,20 @@ Whatever the entry, the result is a **draft PR on a `claude/<n>-<slug>`
 branch**. The default branch is protected; nothing lands without the
 required checks.
 
+The agent runs with an explicit tool allowlist, never with
+`--dangerously-skip-permissions`: git, a handful of `gh` subcommands and the
+repo's own check commands. It only acts on text written by people with
+write access, and it cannot write to `.github/` or `.claude/`. See
+[Guardrails](../common/docs/agent-automation.md#guardrails) for the layers.
+
 ## The reviewer
 
 The author and the reviewer are different runs with different models:
 Sonnet (or whatever the labels pick) writes, Opus reviews, so nothing grades
 its own work. The reviewer reads the conventions and decisions first, reviews
-adversarially, runs every check, fixes real problems itself (at most three
-rounds) and then makes one call:
+adversarially, reads the CI result (it never runs the PR's own scripts,
+because the PR could have changed them), fixes real problems itself (at
+most three rounds) and then makes one call:
 
 - **auto-merge** when the checks are green and the change is sound, or
 - **hold** with `needs-verification` and a comment saying exactly what a
@@ -99,12 +106,16 @@ Agents start from zero every run, so everything they need is in the repo:
 | Agent pushes went out as `github-actions[bot]`, their CI sat in "action required" | `persist-credentials: false` on checkout |
 | The reviewer never ran on PRs opened by the agent bot | `allowed_bots: "claude"` on the reviewer and autopilot |
 | `@claude` comments from strangers run with access to secrets on public repos | Mention workflow gated to OWNER / MEMBER / COLLABORATOR |
-| An autonomous agent should not rewrite its own CI | The app token has no `workflows` permission; the prompt says to describe such changes and stop |
+| An autonomous agent should not rewrite its own CI | A path guard hook blocks every write to `.github/` and `.claude/`; the token's scope is not relied on (the Claude app is installed with Workflows write) |
+| A crafted issue made Claude dump its environment and mint a write token (CVE-2025-66032); an issue title led to a poisoned npm release (Clinejection, 2026) | No `--dangerously-skip-permissions`: a tool allowlist, deny rules, egress control with harden-runner, only issue text from people with write access |
+| The reviewer ran the PR's own test scripts in a job that holds secrets | The reviewer reads CI results instead; PRs touching CI, agent config, ADRs or dependencies are held for a human by a deterministic step |
+| A tag-pinned action was rewritten upstream to steal secrets (tj-actions/changed-files, 2025) | Every action pinned by commit SHA; Dependabot bumps after a 7-day cooldown |
+| A release used a build cache an earlier, untrusted job could have filled | No package-manager cache in release workflows |
 | A reviewer that commits would re-trigger itself forever | Review runs on PR opened / ready only, not on push |
 | `strict` branch protection made every second PR "behind" | `strict` off, checks still required (merge queues are org-only) |
 | Auto-merge was armed, then hassfest failed — the PR sat silently for hours | The reviewer job waits for the checks and hands a failure to a human |
 | GitHub fired the 30-minute cron only about every 10 hours | Autopilot also advances on merged PRs, finished CI/review runs and label changes |
-| A run that hit the turn cap left nothing behind and was retried forever | 150-turn cap documented; issues are cut so one run fits (measure, decide, then implement) |
+| A run that hit the turn cap left nothing behind and was retried forever | The agent pushes early; `save-wip.sh` saves whatever is left to a draft PR labelled `agent:needs-continuation`, which also stops the autopilot until a human looks |
 | A release was cut from a tag that did not match the code | Release only if the tag equals the declared version and the changelog has a non-empty section |
 | The release title showed the commit subject instead of the tag message | Title read from the annotated tag via the API (checkout overwrites the tag locally) |
 | HACS showed zero downloads | Integrations ship a zip asset with `zip_release`, guarded by a test |

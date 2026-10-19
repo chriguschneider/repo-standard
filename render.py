@@ -159,6 +159,9 @@ def main() -> None:
         "MODE": args.mode,
         "STANDARD_URL": STANDARD_URL,
         "FUNDING_URL": "",
+        # harden-runner: `audit` until a few agent runs show every endpoint,
+        # then `--set EGRESS_POLICY=block` (or edit the workflows).
+        "EGRESS_POLICY": "audit",
     }
     values.update(detected_identity())
     values.update(user_defaults())
