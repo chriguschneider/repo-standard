@@ -11,12 +11,16 @@ name: Claude (review + auto-merge)
 # reviewer reads its result. A final deterministic step holds any PR that
 # touches sensitive paths for a human, whatever the model decided.
 #
-# Runs only on PR open / ready -- NOT on every push -- so the reviewer's own
-# fix commits don't re-trigger it. Re-run manually via the Actions tab.
+# Never runs on push, so the reviewer's own fix commits don't re-trigger it.
+# Re-run manually via the Actions tab.
 
+# Started by after-agent-run.sh once the author agent reports
+# `Agent status: done` (workflow_dispatch), or when a human marks an agent
+# PR ready. Not on `opened`: the agent opens its draft early and keeps
+# working on it.
 on:
   pull_request:
-    types: [opened, ready_for_review]
+    types: [ready_for_review]
   workflow_dispatch:
     inputs:
       pr:
@@ -27,14 +31,15 @@ permissions: {}
 
 jobs:
   review:
-    # Only agent branches. `draft == true` alone would never match a
-    # ready_for_review event, so an agent marking its own PR ready would
-    # skip review entirely.
+    # Only agent branches. Same-repo only: Claude Code names branches `claude/...` by default, so
+    # a contributor's fork PR can carry the prefix too. And the reviewer's
+    # own `gh pr ready` fires ready_for_review: skip that, or every PR is
+    # reviewed twice.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (startsWith(github.event.pull_request.head.ref, 'claude/') &&
-       (github.event.action == 'ready_for_review' ||
-        github.event.pull_request.draft == true))
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.sender.login != 'claude[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:
@@ -49,9 +54,10 @@ jobs:
     env:
       PR: ${{ github.event.pull_request.number || github.event.inputs.pr }}
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+      @@AGENT_ENV@@
       # Paths whose change always needs a human: CI and agent config, the
       # conventions and decisions the reviewer judges against, dependencies.
-      SENSITIVE: '^(\.github/|\.claude/|scripts/|docs/adr/|AGENTS\.md$|CLAUDE\.md$|requirements[^/]*\.txt$|pyproject\.toml$|package(-lock)?\.json$|hacs\.json$|custom_components/[^/]+/manifest\.json$)'
+      SENSITIVE: '^(\.github/|\.claude/|scripts/|docs/adr/|AGENTS\.md$|CLAUDE\.md$|requirements[^/]*\.txt$|pyproject\.toml$|package(-lock)?\.json$|hacs\.json$|custom_components/[^/]+/manifest\.json$@@SENSITIVE_EXTRA@@)'
     steps:
       # Outbound traffic: `audit` logs every connection, `block` allows only
       # the list. Start with audit, switch to block once a few runs show the
@@ -118,16 +124,18 @@ jobs:
         uses: anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6 # v1.0.253
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # The author agent opens the PR as claude[bot]; allow that bot to
-          # trigger this reviewer (default guard blocks bot-initiated runs).
-          allowed_bots: "claude"
+          # after-agent-run.sh starts this review with the workflow token
+          # (actor github-actions[bot]); allow it and claude[bot], whose PRs
+          # these are. Allowed bots skip the write-access check, but only
+          # workflows of this repo can dispatch here.
+          allowed_bots: "claude,github-actions"
           include_comments_by_actor: "${{ github.repository_owner }},claude[bot]"
           settings: .claude/ci-settings.json
           claude_args: >-
             --model opus
             --max-turns 60
             --permission-mode dontAsk
-            --allowedTools "Read,Glob,Grep,Edit,Write,TodoWrite,Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git switch*),Bash(git checkout*),Bash(git branch*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(git rm*),Bash(git mv*),Bash(git restore*),Bash(git fetch*),Bash(git rev-parse*),Bash(ls*),Bash(gh issue view*),Bash(gh pr checkout*),Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr checks*),Bash(gh pr comment*),Bash(gh pr ready*),Bash(gh pr edit*),Bash(gh pr merge*)"
+            --allowedTools "Read,Glob,Grep,Edit,Write,TodoWrite,Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git switch*),Bash(git checkout*),Bash(git branch*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(git rm*),Bash(git mv*),Bash(git restore*),Bash(git fetch*),Bash(git rev-parse*),Bash(ls*),Bash(gh issue view*),Bash(gh pr checkout*),Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr checks*),Bash(gh pr list*),Bash(gh pr comment*),Bash(gh pr ready*),Bash(gh pr edit*),Bash(gh pr merge*)"
           prompt: |
             You are an INDEPENDENT, adversarial reviewer for pull request
             #${{ env.PR }} of this repository. You did NOT write it. Your job
@@ -147,9 +155,7 @@ jobs:
                missed edge cases, whether it respects every accepted ADR, and
                whether it actually resolves the linked issue. If CI is not
                green, find out why from the diff and `gh pr checks`.
-            2. FIX substantive problems yourself on the PR branch (commit +
-               push; CI re-runs on your push). **At most 3 fix rounds.** Do not
-               fix pure style nits. Never push to the default branch.
+            @@REVIEW_FIX_RULE@@
             3. DECIDE -- DEFAULT TO AUTO-MERGE:
                b. AUTO-MERGE when CI is green (or only your own fix is still
                   running) and the change is logically sound. Do NOT hold a
@@ -162,13 +168,40 @@ jobs:
                   cannot be judged without a live system or a human decision
                   AND a regression would be clearly user-visible
                   (@@HOLD_EXAMPLES@@). Also hold if the PR or its issue
-                  already carries `needs-verification`, or you found a real
+                  already carries `needs-verification`, if the description
+                  says `Agent status: blocked`, or you found a real
                   problem you could not fix within 3 rounds. Then add the
                   `needs-verification` label (`gh pr edit --add-label`),
                   comment exactly what a human must check, and STOP.
 
             Never bypass required checks. When unsure between the two, prefer
             AUTO-MERGE -- a following step holds sensitive paths regardless.
+
+      # A review run that dies (turn limit, error) would leave the PR open
+      # without a label, and the autopilot would wait on it forever.
+      - name: Hand a failed review to a human
+        if: failure() && steps.token.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit "$PR" --add-label needs-verification
+          gh pr comment "$PR" --body "The review run ended before deciding (turn limit or error): $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. Labelled \`needs-verification\`; re-run the review from the Actions tab or decide by hand."
+
+      # The part an agent may not do (CI, agent config) must not get lost
+      # when the rest merges: hold the PR and open a follow-up issue.
+      - name: Keep human-only changes from getting lost
+        if: always() && steps.token.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="$(gh pr view "$PR" --json body --jq .body)"
+          case "$body" in *"## Human-only change"*) ;; *) echo "no human-only change"; exit 0 ;; esac
+          gh pr merge "$PR" --disable-auto 2>/dev/null || true
+          gh pr edit "$PR" --add-label needs-verification
+          if ! gh issue list --state open --search "Human-only change from #$PR in:title" --json number --jq '.[0].number' | grep -q .; then
+            gh issue create --title "Human-only change from #$PR" \
+              --body "PR #$PR needs a change the agent may not make (see its \`## Human-only change\` section). Make it, then merge the PR; this issue tracks that it does not get lost."
+          fi
 
       # Deterministic, after the model: a PR that changes CI, agent config,
       # conventions, decisions or dependencies is never auto-merged.

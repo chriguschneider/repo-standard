@@ -5,6 +5,22 @@
         "title": "@@NAME@@",
         "description": "@@NAME@@ einrichten."
       }
+    },
+    "abort": {
+      "single_instance_allowed": "Bereits eingerichtet. Es ist nur eine Konfiguration möglich."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "@@NAME@@ – Optionen",
+        "data": {
+          "update_interval": "Aktualisierungsintervall (Minuten)"
+        },
+        "data_description": {
+          "update_interval": "Wie oft die Daten abgerufen werden."
+        }
+      }
     }
   }
 }

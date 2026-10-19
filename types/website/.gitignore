@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.astro/
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Machine-local Claude notes (shared conventions: AGENTS.md, via CLAUDE.md)
+CLAUDE.local.md
+.claude/settings.local.json

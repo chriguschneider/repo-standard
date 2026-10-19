@@ -1,7 +1,8 @@
 """Pure metadata tests: no Home Assistant required.
 
 Guards the "keep in sync" footgun called out in const.py: the version must
-be identical in manifest.json and const.py. Also asserts the manifest and
+be identical in manifest.json, const.py and, where they exist, a bundled
+card's ``CARD_VERSION`` and the root package.json. Also asserts the manifest and
 hacs.json carry what hassfest / HACS expect, and that the zip release asset
 is wired end to end. Runs in milliseconds, stdlib only.
 """
@@ -27,9 +28,31 @@ def _const_version() -> str:
     return match.group(1)
 
 
+def _version_sources() -> dict[str, str]:
+    """Every place that declares the version, keyed by where it was found."""
+    found = {
+        "manifest.json version": _manifest()["version"],
+        "const.py VERSION": _const_version(),
+    }
+    # A card shipped inside the integration (frontend/*.js) and the
+    # package.json that exists only for its tests carry the version too.
+    for card in sorted((COMPONENT / "frontend").glob("*.js")):
+        text = card.read_text(encoding="utf-8")
+        match = re.search(r"CARD_VERSION\s*=\s*['\"]([^'\"]+)['\"]", text)
+        if match:
+            found[f"frontend/{card.name} CARD_VERSION"] = match.group(1)
+    package = ROOT / "package.json"
+    if package.is_file():
+        found["package.json version"] = json.loads(
+            package.read_text(encoding="utf-8")
+        )["version"]
+    return found
+
+
 def test_versions_are_in_sync() -> None:
     """Every file that carries the version moves together, or it drifts."""
-    assert _const_version() == _manifest()["version"], "const.py VERSION out of sync"
+    sources = _version_sources()
+    assert len(set(sources.values())) == 1, f"versions out of sync: {sources}"
 
 
 def test_manifest_has_required_keys() -> None:

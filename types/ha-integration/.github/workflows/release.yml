@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: read # check the CI result of the tagged commit
 
 jobs:
   release:
@@ -23,6 +24,16 @@ jobs:
           # The annotated tag object carries the release title (see below),
           # and it is not present in a shallow clone of the commit alone.
           fetch-depth: 0
+
+      - name: CI passed on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ok="$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId --jq length)"
+          if [ "$ok" = "0" ]; then
+            echo "::error::No green CI run for $GITHUB_SHA. Tag a commit that passed CI on the default branch."
+            exit 1
+          fi
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -154,6 +165,15 @@ jobs:
           fi
           if unzip -Z1 @@DOMAIN@@.zip | grep -q '__pycache__'; then
             echo "::error::__pycache__ leaked into the release asset."
+            exit 1
+          fi
+          # Exactly the tracked files of the integration, subfolders included
+          # (brand/, translations/, a bundled frontend/): a missing file breaks
+          # installs, an extra one is something nobody reviewed.
+          (cd custom_components/@@DOMAIN@@ && git ls-files | sort) > expected.txt
+          unzip -Z1 @@DOMAIN@@.zip | sed 's|^\./||' | grep -v '/$' | sort > actual.txt
+          if ! diff -u expected.txt actual.txt; then
+            echo "::error::The zip does not hold exactly the tracked files of custom_components/@@DOMAIN@@ (diff above)."
             exit 1
           fi
 

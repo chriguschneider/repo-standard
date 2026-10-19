@@ -85,23 +85,63 @@ with `allowed-endpoints`, add what is missing, then set
 
 Other rules:
 
-- The prompts tell the agent to follow `AGENTS.md` and `docs/adr/`, to treat
-  issue text as a description of a change rather than instructions, and to
-  stop rather than guess.
-- Ambiguous issue → draft with a "Blocked / needs decision" note.
+- The prompts tell the agent to follow `AGENTS.md`, `docs/adr/` and
+  `docs/upstream.md`, to treat issue text as a description of a change
+  rather than instructions, to stop if the issue is closed or already has
+  an open PR, and never to invent domain data (every lookup table or
+  constant cites a source).
+- **Changes only a human may make** (`.github/`, `.claude/`): the agent
+  writes `Refs #N` instead of `Closes #N` and a `## Human-only change`
+  section with the exact diff. The reviewer then holds the PR and opens a
+  follow-up issue, so that half does not get lost when the rest merges.
+- **The agent reports how it ended.** The last line of the PR description
+  is `Agent status: done` or `Agent status: blocked`. The action's exit
+  status is not used for this: a finished run can still fail for going a
+  few turns over the limit.
 - **Runs are capped** at 100 turns (mention: 60) and 60 minutes. The agent
-  is told to push early and open the draft PR after its first commit. If a
-  run still ends early, `save-wip.sh` commits and pushes what is left and
-  opens or updates a draft PR labelled **`agent:needs-continuation`**. That
-  push uses the workflow token, so it triggers neither CI nor the reviewer:
-  unfinished work is never auto-merged. Continue with `@claude continue`,
-  or by hand. Still: cut issues small. An issue that needs measurement, an
-  ADR and code is three issues, not one.
+  pushes early and opens the draft PR after its first commit. After every
+  run, `after-agent-run.sh` commits and pushes what is left and reads the
+  status line:
+
+  | Ends with | Then |
+  |---|---|
+  | `Agent status: done` | the reviewer is started (`gh workflow run claude-review.yml`) |
+  | `Agent status: blocked` | the PR gets `needs-verification`, a human decides |
+  | no status line | the PR gets **`agent:needs-continuation`**; continue with `@claude continue` or by hand |
+  | nothing committed, run failed | the *issue* gets `needs-verification` and a comment to split it, so the autopilot does not retry it forever |
+
+  Its pushes use the workflow token, so they trigger neither CI nor the
+  reviewer: unfinished work is never auto-merged.
+
+## Sizing an issue
+
+Most failed runs in the repos this standard comes from were issues that
+were too big, not too hard. A run that hits the limit before its first
+commit leaves nothing; the same issue then fails again. Use the *Agent
+task* issue template and keep to:
+
+- **One layer per issue** (client, entities, config flow, card editor ...),
+  at most about four modules.
+- **Measuring and deciding happen first, by hand.** Upstream measurements
+  (`docs/upstream.md`), the ADR and real fixtures land in a maintainer PR;
+  the agent issues only implement.
+- **Name the files and the exact tests** that prove it, and what is out of
+  scope (no network in tests, no new ADR, no new dependency).
+- **Slices of one feature** are titled "Feature (N/M)" and given P-labels
+  in order, only when the previous slice is merged.
+- **A repo needs a test suite before `agent:go` makes sense.** Without
+  tests the agent cannot verify anything, and the reviewer cannot either.
+- Research logs and wish lists get the label **`tracking`**: no agent and
+  no autopilot ever works them.
 
 ## Automated review + auto-merge (`claude-review.yml`)
 
-An **independent Opus reviewer** runs on every agent PR (`claude/*`). It
-first waits for the required checks, then reviews the diff adversarially
+An **independent Opus reviewer** runs on agent PRs (`claude/*` branches of
+this repository; a contributor's fork PR with the same prefix is ignored).
+It starts when the author agent reports `Agent status: done`, or when a
+human marks an agent PR ready. Not when the draft opens: the agent opens
+it early and keeps working. Its own `gh pr ready` does not start a second
+review. It first waits for the required checks, then reviews the diff adversarially
 against `AGENTS.md` and the ADRs, reads the CI result (it does not run the
 checks itself), fixes substantive problems on the branch (**at most 3
 rounds**; CI re-runs on its pushes), then either:
@@ -112,11 +152,20 @@ rounds**; CI re-runs on its pushes), then either:
   it could not make the change solid — it labels the PR
   `needs-verification` and comments exactly what to check.
 
-Whatever the model decided, a PR that touches sensitive paths is then held
-with `needs-verification`. After that the job waits for the required
-checks; if one fails
-after auto-merge was armed, the PR gets `needs-verification` and a comment
-naming the check, instead of sitting silently.
+Whatever the model decided, a PR that touches sensitive paths or carries a
+`## Human-only change` is then held with `needs-verification`. A review run
+that dies (turn limit, error) labels the PR too, instead of leaving it
+open without a label. After that the job waits for the required checks; if
+one fails after auto-merge was armed, the PR gets `needs-verification` and
+a comment naming the check, instead of sitting silently.
+
+## A red default branch (`ci-watch.yml`)
+
+CI also runs weekly, so tool or upstream drift shows up without commits.
+When CI fails on `@@BRANCH@@`, `ci-watch.yml` opens one issue "CI is red on
+@@BRANCH@@" (no P-label, so no agent picks it up) and closes it when CI is
+green again. In types with tag releases, `release.yml` refuses a tag whose
+commit has no green CI run.
 
 Auto-merge needs branch protection with required checks on
 `@@BRANCH@@`. Without it (private repo on a free plan) use mode `minimal`.
@@ -125,9 +174,11 @@ Auto-merge needs branch protection with required checks on
 
 After every closed PR, completed CI/review run, issue label change and on
 a cron at :13/:43 — **if no agent PR is open** — it takes the next open
-P-issue (P1 before P2 before P3, lowest number first). Skips issues whose
-title starts with `Tracking:`, anything assigned, and anything labelled
-`agent:go`, `agent:in-progress` or `needs-verification`. Pause it by
+P-issue written by the repo owner (P1 before P2 before P3, lowest number
+first). Skips issues whose title starts with `Tracking:`, anything
+assigned, and anything labelled `agent:go`, `agent:in-progress`,
+`needs-verification` or `tracking`. An open agent PR from this repository
+blocks it; the job summary names which one. Pause it by
 disabling the workflow; kick it with `gh workflow run claude-autopilot.yml`.
 
 Give an issue a P-label only when its prerequisites are merged, or the

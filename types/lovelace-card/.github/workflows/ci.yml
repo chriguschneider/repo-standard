@@ -5,6 +5,10 @@ on:
     branches: [@@BRANCH@@]
   pull_request:
   workflow_dispatch:
+  # Weekly, so tool or upstream drift (a new hassfest rule, a dependency)
+  # turns CI red even without commits; ci-watch.yml opens an issue.
+  schedule:
+    - cron: "23 4 * * 1"
 
 permissions:
   contents: read
@@ -37,19 +41,56 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Security audit
-        # High/critical advisories fail the build; the rest arrive as
-        # Dependabot PRs.
+      - name: Security audit (shipped dependencies)
+        # Blocking: a high/critical advisory in what ends up in the bundle.
+        # Dev tooling never reaches a dashboard, so it does not block.
+        run: npm audit --omit=dev --audit-level=high
+      - name: Security audit (all, informational)
+        # Shows dev-tool advisories without failing the build; fixes
+        # arrive as Dependabot PRs.
+        continue-on-error: true
         run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
+      # Before the build on purpose: the metadata test checks the
+      # committed bundle carries package.json's version.
       - run: npm test
       - run: npm run build
+      - name: Bundle budget
+        # Generous caps over all dist/*.js (raw and gzipped, what HA's
+        # frontend downloads). Tripping one means an accidental large
+        # dependency or broken tree-shaking: investigate, don't raise it.
+        run: |
+          set -euo pipefail
+          raw_limit=$((300 * 1024))
+          gzip_limit=$((100 * 1024))
+          raw=0
+          gz=0
+          for f in dist/*.js; do
+            r=$(wc -c < "$f")
+            g=$(gzip -9c "$f" | wc -c)
+            echo "$f: $r bytes raw, $g gzipped"
+            raw=$((raw + r))
+            gz=$((gz + g))
+          done
+          echo "total: $raw raw (limit $raw_limit), $gz gzipped (limit $gzip_limit)"
+          fail=0
+          if [ "$raw" -gt "$raw_limit" ]; then
+            echo "::error::Bundle is $raw bytes raw, over the $raw_limit budget."
+            fail=1
+          fi
+          if [ "$gz" -gt "$gzip_limit" ]; then
+            echo "::error::Bundle is $gz bytes gzipped, over the $gzip_limit budget."
+            fail=1
+          fi
+          exit "$fail"
       - name: Committed bundle matches source
         # HACS serves dist/ from the repo, so it must be what src/ builds.
+        # `git status`, not `git diff`: a bundle that was never committed
+        # is untracked and invisible to diff.
         run: |
-          if ! git diff --quiet -- dist/; then
+          if [ -n "$(git status --porcelain -- dist/)" ]; then
             echo "::error::dist/ is out of sync with src/. Run 'npm run build' and commit the result."
-            git --no-pager diff --stat -- dist/
+            git --no-pager status --short -- dist/
             exit 1
           fi

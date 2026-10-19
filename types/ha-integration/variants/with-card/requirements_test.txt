@@ -1,0 +1,7 @@
+ruff
+pytest
+pytest-cov
+pytest-homeassistant-custom-component
+aioresponses
+# The card is registered through the real frontend component in tests.
+home-assistant-frontend

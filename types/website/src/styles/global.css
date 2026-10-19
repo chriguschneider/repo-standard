@@ -1,0 +1,56 @@
+/* Shipped as a file, never inline: the CSP in public/_headers has no
+   'unsafe-inline' for styles (astro.config.ts, build.inlineStylesheets). */
+
+:root {
+  --color-text: #1b1b1b;
+  --color-background: #fdfdfc;
+  --color-accent: #0b5cad;
+  --color-banner: #8a4b00;
+  --color-banner-text: #ffffff;
+  --font-body: system-ui, sans-serif;
+  --measure: 40rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-background);
+}
+
+a {
+  color: var(--color-accent);
+}
+
+.preview-banner {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-weight: 600;
+  color: var(--color-banner-text);
+  background: var(--color-banner);
+}
+
+.site-header,
+main,
+.site-footer {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.draft-mark {
+  font-size: 0.8em;
+  text-transform: uppercase;
+  color: var(--color-banner);
+}

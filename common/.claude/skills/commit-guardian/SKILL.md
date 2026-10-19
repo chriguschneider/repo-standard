@@ -43,13 +43,18 @@ triggers when a commit is *imminent*.
 
 From AGENTS.md:
 
-- **Version sync** — @@VERSION_SYNC_RULE@@
-- **Changelog** — a user-visible change adds an entry under
-  `## [Unreleased]`.
+- **Kept in sync** — @@VERSION_SYNC_RULE@@
+- @@CHANGELOG_GUARD_RULE@@
 - **English only** in code, comments, commit messages.
 - **Commit trailer** — an AI-authored commit carries an honest
   `Co-Authored-By:` trailer.
 - **No direct commit to `@@BRANCH@@`.**
+- **Explaining comments survive** — flag a diff that deletes a comment
+  citing an issue (`#123`) or an ADR: those record why odd-looking code is
+  the way it is.
+- **Generated artifacts in sync** — a change to sources of a committed
+  build output (bundle, PDF, generated table) carries the regenerated
+  output in the same commit.
 
 From the ADRs: TODO(repo-standard): one bullet per repo-specific ADR with
 the rule in checkable form (hosts, paths, imports, budgets).

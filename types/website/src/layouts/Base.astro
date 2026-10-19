@@ -1,0 +1,63 @@
+---
+import '../styles/global.css';
+import { NOINDEX, PREVIEW } from '../config';
+import { dictionary, localeOf, localeRoot, LOCALES, type Locale } from '../i18n';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Overrides the route's locale, e.g. for a post written in another language. */
+  lang?: Locale;
+  /** The same page in other languages. Defaults to the home page of each language. */
+  alternates?: Partial<Record<Locale, string>>;
+  /** Pages that must not be canonical (the 404 page) set this to false. */
+  canonical?: boolean;
+}
+
+const locale = Astro.props.lang ?? localeOf(Astro.currentLocale);
+const t = dictionary(locale);
+const title = Astro.props.title ? `${Astro.props.title} · ${t.meta.title}` : t.meta.title;
+const description = Astro.props.description ?? t.meta.description;
+const alternates = Astro.props.alternates ?? Object.fromEntries(LOCALES.map((l) => [l, localeRoot(l)]));
+const canonical = Astro.props.canonical === false ? null : new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang={t.htmlLang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {(PREVIEW || NOINDEX) && <meta name="robots" content="noindex, nofollow" />}
+    {canonical && <link rel="canonical" href={canonical} />}
+    {
+      Object.entries(alternates).map(([l, path]) => (
+        <link rel="alternate" hreflang={l} href={new URL(path, Astro.site)} />
+      ))
+    }
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+  </head>
+  <body>
+    {PREVIEW && <p class="preview-banner" role="status">{t.previewBanner}</p>}
+    <header class="site-header">
+      <a href={localeRoot(locale)}>{t.nav.home}</a>
+      <nav aria-label={t.nav.languages}>
+        {
+          LOCALES.filter((l) => l !== locale && alternates[l]).map((l) => (
+            <a href={alternates[l]} hreflang={l} lang={l}>
+              {dictionary(l).languageName}
+            </a>
+          ))
+        }
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <a href="https://github.com/@@OWNER@@/@@REPO@@">{t.footer.source}</a>
+    </footer>
+  </body>
+</html>

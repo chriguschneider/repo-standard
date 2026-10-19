@@ -1,0 +1,15 @@
+{
+  "name": "@@REPO@@-card-tests",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Tests for the card bundled in custom_components/@@DOMAIN@@/frontend/. Nothing here is built or shipped.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "check": "node --check custom_components/@@DOMAIN@@/frontend/@@CARD_TAG@@.js",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  }
+}

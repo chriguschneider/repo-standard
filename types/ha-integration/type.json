@@ -11,19 +11,24 @@
     "IOT_CLASS": "cloud_polling",
     "INTEGRATION_TYPE": "service",
     "HA_MIN": "2025.1.0",
+    "HA_DEPENDENCIES": "",
+    "SINGLE_CONFIG_ENTRY": "\"single_config_entry\": true,",
     "CODEQL_LANGUAGE": "python",
     "CHECKS_INLINE": "`ruff check custom_components tests`, `pytest -q`",
     "AGENT_CHECKS": "`pip install -r requirements_test.txt`,\n`ruff check custom_components tests`, `pytest -q`.",
     "HOLD_EXAMPLES": "e.g. config-flow UX, entity naming that users build automations on",
     "VERSION_SYNC_RULE": "`manifest.json` `version` and `const.py` `VERSION` must match. Flag a diff that changes one without the other.",
-    "BUG_LOGS_HINT": "Relevant lines from Settings → System → Logs (filter for `@@DOMAIN@@`).",
-    "BUG_ENVIRONMENT": "- **Home Assistant version**: (e.g., 2026.10.0)\n- **Integration version**: (e.g., 0.1.0)",
-    "STRUCTURE": "custom_components/@@DOMAIN@@/\n├── __init__.py          # entry setup/unload, platforms\n├── config_flow.py       # UI setup + options\n├── const.py             # DOMAIN, VERSION, constants\n├── brand/               # icon.png, icon@2x.png\n├── strings.json / translations/\n└── manifest.json\ntests/                   # pytest + pytest-homeassistant-custom-component\ndocs/adr/                # decisions",
+    "BUG_LOGS_HINT": "Relevant lines from Settings → System → Logs (filter for `@@DOMAIN@@`).\nFor more detail, enable debug logging first: Settings → Devices & services →\n@@NAME@@ → ⋮ → *Enable debug logging*, reproduce the problem, then disable it\nagain (the log file downloads).",
+    "BUG_ENVIRONMENT": "- **Home Assistant version**: (e.g., 2026.10.0)\n- **Integration version**: (e.g., 0.1.0)\n- **Diagnostics**: Settings → Devices & services → @@NAME@@ → ⋮ →\n  *Download diagnostics*, and attach the file here. Secrets and location are\n  redacted; have a look before you upload it.",
+    "STRUCTURE": "custom_components/@@DOMAIN@@/\n├── __init__.py          # entry setup/unload, platforms, update listener\n├── coordinator.py       # DataUpdateCoordinator, typed ConfigEntry + runtime_data\n├── config_flow.py       # UI setup + options flow\n├── diagnostics.py       # redacted diagnostics download\n├── const.py             # DOMAIN, VERSION, constants\n├── brand/               # icon.png, icon@2x.png\n├── strings.json / translations/\n└── manifest.json\ntests/                   # pytest + pytest-homeassistant-custom-component\n├── fixtures/            # trimmed real upstream files (tests/README.md)\n└── README.md            # fixture inventory\ndocs/adr/                # decisions",
     "RELEASE_STEPS": "Releases are automated via tag push (`.github/workflows/release.yml`, ADR-0001):\n\n1. **Update version and changelog**: bump `version` in\n   `custom_components/@@DOMAIN@@/manifest.json` and `VERSION` in\n   `const.py`. Rename `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD`,\n   add a fresh empty `## [Unreleased]` and the link definition. Commit as\n   `chore(release): vX.Y.Z`.\n2. **Verify**: `pytest -q tests/test_metadata.py tests/test_changelog.py`.\n3. **Tag** with an **annotated** tag whose message is the release title:\n   `git tag -a vX.Y.Z -m \"what changed\"`.\n4. **Push**: `git push origin vX.Y.Z`. The workflow verifies the tag\n   against the manifest, extracts the notes, packages `@@DOMAIN@@.zip`\n   and creates the release. HACS reads it.",
-    "TESTING": "- `pip install -r requirements_test.txt` once.\n- **Lint**: `ruff check custom_components tests`.\n- **Tests**: `pytest -q`. Metadata/changelog tests are stdlib-only;\n  integration tests use `pytest-homeassistant-custom-component`\n  (`hass` fixture, `enable_custom_integrations`), with upstream responses\n  replayed from `tests/fixtures/` — never hit the network in tests.",
+    "TESTING": "- `pip install -r requirements_test.txt` once.\n- **Lint**: `ruff check custom_components tests`.\n- **Tests**: `pytest -q`. Metadata/changelog tests are stdlib-only;\n  integration tests use `pytest-homeassistant-custom-component`\n  (`hass` fixture, `enable_custom_integrations`), with upstream responses\n  replayed from `tests/fixtures/` via the `mock_upstream` fixture — never\n  hit the network in tests. Fixtures are trimmed real files; see\n  `tests/README.md`.\n- **New behavior gets a test**: a config-flow field gets a flow test, a\n  stored field that identifies the user gets a diagnostics assertion.",
     "DEPENDABOT_EXTRA": "- package-ecosystem: \"pip\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    pip-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"",
     "AGENT_TOOLS": "Bash(pip install -r requirements_test.txt*),Bash(python -m pip install -r requirements_test.txt*),Bash(ruff check*),Bash(ruff format*),Bash(pytest*),Bash(python -m pytest*)",
-    "EGRESS_EXTRA": "pypi.org:443\nfiles.pythonhosted.org:443"
+    "EGRESS_EXTRA": "pypi.org:443\nfiles.pythonhosted.org:443",
+    "DEVICE_RULES": "",
+    "SMOKE_RULES": "",
+    "CARD_RULES": ""
   },
   "required_checks": [
     "hassfest (HA manifest validation)",
@@ -45,5 +50,53 @@
     ".venv/bin/ruff check custom_components tests && .venv/bin/pytest -q",
     "docker run --rm -v \"$PWD\":/github/workspace ghcr.io/home-assistant/hassfest",
     "replace custom_components/<domain>/brand/icon*.png with a real icon"
-  ]
+  ],
+  "variants": {
+    "device": {
+      "description": "A local device on the LAN (polled by host): one entry per device keyed by serial number, setup succeeds while the device is off.",
+      "placeholders": {
+        "IOT_CLASS": "local_polling",
+        "INTEGRATION_TYPE": "device",
+        "SINGLE_CONFIG_ENTRY": "",
+        "HOLD_EXAMPLES": "e.g. config-flow UX, unique-id or entity naming that users build automations on, anything that changes how a device is identified",
+        "STRUCTURE": "custom_components/@@DOMAIN@@/\n├── __init__.py          # entry setup/unload (succeeds while the device is off)\n├── client.py            # device API: probe + state, no HA imports\n├── coordinator.py       # DataUpdateCoordinator, typed ConfigEntry + runtime_data\n├── config_flow.py       # host -> probe -> unique id = serial; options flow\n├── entity.py            # device info, availability follows the data\n├── sensor.py            # entities\n├── diagnostics.py       # redacted diagnostics download\n├── const.py             # DOMAIN, VERSION, constants\n├── brand/               # icon.png, icon@2x.png\n├── strings.json / translations/\n└── manifest.json\ntests/                   # pytest + pytest-homeassistant-custom-component\n├── fixtures/            # trimmed real device responses (tests/README.md)\n└── README.md            # fixture inventory\ndocs/adr/                # decisions"
+      },
+      "conflicts": [
+        "with-card"
+      ]
+    },
+    "smoke": {
+      "description": "Weekly live smoke test against the upstream (tests/tools/smoke_test.py); a failure opens one issue for a human.",
+      "placeholders": {}
+    },
+    "with-card": {
+      "description": "Ships its own Lovelace card in custom_components/<domain>/frontend/ (plain JS, no build), registered by the integration; vitest for the card.",
+      "placeholders": {
+        "HA_DEPENDENCIES": "\"frontend\", \"http\"",
+        "CARD_TAG": "@@DOMAIN@@-card",
+        "CODEQL_LANGUAGE": "python, javascript-typescript",
+        "CHECKS_INLINE": "`ruff check custom_components tests`, `pytest -q`, `npm test`",
+        "AGENT_CHECKS": "`pip install -r requirements_test.txt`,\n`ruff check custom_components tests`, `pytest -q`, `npm ci`, `npm test`.",
+        "AGENT_TOOLS": "Bash(pip install -r requirements_test.txt*),Bash(python -m pip install -r requirements_test.txt*),Bash(ruff check*),Bash(ruff format*),Bash(pytest*),Bash(python -m pytest*),Bash(npm ci*),Bash(npm install*),Bash(npm test*),Bash(npm run check*),Bash(npx vitest*)",
+        "HOLD_EXAMPLES": "e.g. config-flow UX, entity naming that users build automations on, visible card layout, card config keys users put in their dashboards",
+        "VERSION_SYNC_RULE": "`manifest.json` `version`, `const.py` `VERSION`, `CARD_VERSION` in `custom_components/@@DOMAIN@@/frontend/@@CARD_TAG@@.js` and `package.json` `version` must match. Flag a diff that changes one without the others.",
+        "CHANGELOG_GUARD_RULE": "**Changelog** — a user-visible change adds an entry under\n  `## [Unreleased]` that ends with *frontend only (browser reload)* or\n  *requires restart*.",
+        "BUG_LOGS_HINT": "Relevant lines from Settings → System → Logs (filter for `@@DOMAIN@@`).\nFor more detail, enable debug logging first: Settings → Devices & services →\n@@NAME@@ → ⋮ → *Enable debug logging*, reproduce the problem, then disable it\nagain (the log file downloads).\nFor a card problem: the browser console (F12 → Console) and the card's YAML.",
+        "DEPENDABOT_EXTRA": "- package-ecosystem: \"pip\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    pip-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"\n\n- package-ecosystem: \"npm\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    npm-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"",
+        "STRUCTURE": "custom_components/@@DOMAIN@@/\n├── __init__.py          # entry setup/unload, card registration\n├── coordinator.py       # DataUpdateCoordinator, typed ConfigEntry + runtime_data\n├── config_flow.py       # UI setup + options flow\n├── diagnostics.py       # redacted diagnostics download\n├── const.py             # DOMAIN, VERSION, constants\n├── frontend/\n│   └── @@CARD_TAG@@.js  # the card: plain ES module, no build step\n├── brand/               # icon.png, icon@2x.png\n├── strings.json / translations/\n└── manifest.json\ntests/                   # pytest (+ HA harness) and vitest (*.test.js)\n├── fixtures/            # trimmed real upstream files (tests/README.md)\n└── README.md            # fixture inventory\npackage.json             # card tests only (vitest), nothing is shipped\ndocs/adr/                # decisions",
+        "RELEASE_STEPS": "Releases are automated via tag push (`.github/workflows/release.yml`, ADR-0001):\n\n1. **Update version and changelog**: bump `version` in\n   `custom_components/@@DOMAIN@@/manifest.json`, `VERSION` in\n   `const.py`, `CARD_VERSION` in `frontend/@@CARD_TAG@@.js` and `version`\n   in `package.json`. Rename `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD`,\n   add a fresh empty `## [Unreleased]` and the link definition. Commit as\n   `chore(release): vX.Y.Z`.\n2. **Verify**: `pytest -q tests/test_metadata.py tests/test_changelog.py`\n   and `npm test`.\n3. **Tag** with an **annotated** tag whose message is the release title:\n   `git tag -a vX.Y.Z -m \"what changed\"`.\n4. **Push**: `git push origin vX.Y.Z`. The workflow verifies the tag\n   against the manifest, extracts the notes, packages `@@DOMAIN@@.zip`\n   and creates the release. HACS reads it.",
+        "TESTING": "- `pip install -r requirements_test.txt` once.\n- **Lint**: `ruff check custom_components tests`.\n- **Tests**: `pytest -q`. Metadata/changelog tests are stdlib-only;\n  integration tests use `pytest-homeassistant-custom-component`\n  (`hass` fixture, `enable_custom_integrations`), with upstream responses\n  replayed from `tests/fixtures/` via the `mock_upstream` fixture — never\n  hit the network in tests. Fixtures are trimmed real files; see\n  `tests/README.md`.\n- **New behavior gets a test**: a config-flow field gets a flow test, a\n  stored field that identifies the user gets a diagnostics assertion.\n- **Card**: `npm ci` once, then `npm test` (vitest, Node, no browser) and\n  `npm run check` (syntax). The card's pure helpers are exported so they\n  can be tested without a DOM."
+      },
+      "required_checks": [
+        "Card tests"
+      ],
+      "conflicts": [
+        "device"
+      ],
+      "post_render": [
+        "npm install --no-audit --no-fund   # creates package-lock.json; commit it (CI runs npm ci)",
+        "npx vitest run"
+      ]
+    }
+  }
 }

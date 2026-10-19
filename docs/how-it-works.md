@@ -26,14 +26,16 @@ flowchart TD
     D --> G[Agent implements on claude/N-slug<br/>runs the checks, opens a draft PR]
     E --> G
     F --> G
-    G --> H[claude-review.yml<br/>independent Opus reviewer]
+    G -->|Agent status: done| H[claude-review.yml<br/>independent Opus reviewer]
+    G -->|no status line| N[draft PR labelled<br/>agent:needs-continuation]
+    G -->|blocked| J
     H -->|green and sound| I[auto-merge, squash]
     H -->|needs a human| J[label needs-verification<br/>comment: what to check]
     I --> K[CI watch: a failing required check<br/>after the LGTM becomes needs-verification]
     I --> F
     J --> L[Human checks, merges]
     L --> F
-    I -.-> M[Release: human bumps version + changelog,<br/>pushes an annotated tag, release.yml publishes]
+    I -.-> M[Release: human bumps version + changelog,<br/>pushes an annotated tag, release.yml publishes<br/>website: human approves the preview, fast-forwards main]
 ```
 
 Three ways in, one way out:
@@ -115,7 +117,20 @@ Agents start from zero every run, so everything they need is in the repo:
 | `strict` branch protection made every second PR "behind" | `strict` off, checks still required (merge queues are org-only) |
 | Auto-merge was armed, then hassfest failed — the PR sat silently for hours | The reviewer job waits for the checks and hands a failure to a human |
 | GitHub fired the 30-minute cron only about every 10 hours | Autopilot also advances on merged PRs, finished CI/review runs and label changes |
-| A run that hit the turn cap left nothing behind and was retried forever | The agent pushes early; `save-wip.sh` saves whatever is left to a draft PR labelled `agent:needs-continuation`, which also stops the autopilot until a human looks |
+| A run that hit the turn cap left nothing behind and was retried forever | The agent pushes early; `after-agent-run.sh` saves whatever is left to a draft PR labelled `agent:needs-continuation`, or, if nothing was committed, labels the issue and asks to split it, so it is not retried |
+| A finished run was failed for going two turns over the limit | The agent ends the PR description with `Agent status: done`; that line, not the exit status, decides what happens next |
+| The reviewer reviewed a draft while the agent was still writing it, and its own `gh pr ready` started a second review of every PR | The reviewer starts when the agent reports done or a human marks the PR ready, and skips events sent by itself |
+| A contributor's fork PR on a `claude/...` branch (Claude Code's default branch name) was taken for an agent PR and stalled the autopilot | Reviewer and autopilot gate only count same-repository branches |
+| The agent could not change a workflow, described the change, wrote `Closes #N` -- the issue closed, the change never happened (4 of 7 ADRs in one repo) | `Refs #N` plus a `## Human-only change` section; the reviewer holds the PR and opens a follow-up issue |
+| CI was red on the default branch for 15 days and a release went out on top | Weekly CI run, `ci-watch.yml` opens an issue, `release.yml` requires a green CI run on the tagged commit |
+| A lookup table the agent invented shipped in a release; hand-written fixtures hid a broken default behind 100 green tests | Domain data cites a source (`docs/upstream.md`), fixtures are trimmed real files |
+| Two agent PRs for the same issue blocked the autopilot for 11 days | The agent first checks the issue is open and has no PR; the autopilot names the blocking PR in its summary |
+| A push with the workflow token never started the follow-up workflow | Known GitHub rule (no recursion); where a follow-up must run, start it with `gh workflow run` |
+| A conflict in a committed bundle was merged by hand and shipped broken | Rebuild on conflict, never hand-merge generated files; CI checks committed output against its sources |
+| A README image vanished in HACS after a rename | HACS shows the README frozen at the release tag and strips relative paths and `<picture>`: absolute URLs, never renamed between releases |
+| The card editor's defaults drifted from the runtime defaults; a row vanished on a live dashboard | One source of defaults, and a test that the editor schema covers the stub config |
+| A dev-only `npm audit` finding blocked unrelated PRs three times | Only runtime advisories block (`--omit=dev`); the full audit reports |
+| The repo had agent workflows but no tests; the agent was never used | A test suite is a precondition for `agent:go` (docs: *Sizing an issue*) |
 | A release was cut from a tag that did not match the code | Release only if the tag equals the declared version and the changelog has a non-empty section |
 | The release title showed the commit subject instead of the tag message | Title read from the annotated tag via the API (checkout overwrites the tag locally) |
 | HACS showed zero downloads | Integrations ship a zip asset with `zip_release`, guarded by a test |

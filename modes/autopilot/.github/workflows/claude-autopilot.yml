@@ -50,9 +50,11 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      actions: write # start the reviewer once the agent reports done
       id-token: write
     env:
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+      @@AGENT_ENV@@
     steps:
       # Outbound traffic: `audit` logs every connection, `block` allows only
       # the list. Start with audit, switch to block once a few runs show the
@@ -104,10 +106,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          open="$(gh pr list --state open --json headRefName \
-            --jq '[.[] | select(.headRefName | startswith("claude/"))] | length')"
+          # Same-repo PRs only: a fork PR on a `claude/...` branch is not ours.
+          blocking="$(gh pr list --state open --json number,headRefName,isCrossRepository \
+            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/"))) | "#\(.number)"] | join(" ")')"
+          open="$(wc -w <<<"$blocking" | tr -d ' ')"
           echo "open=$open" >> "$GITHUB_OUTPUT"
-          echo "open agent PRs: $open"
+          echo "open agent PRs: ${blocking:-none}"
+          if [ "$open" != "0" ]; then
+            echo "Autopilot waits: open agent PR(s) $blocking" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Pick next issue
         id: next
@@ -138,13 +145,17 @@ jobs:
             --model ${{ steps.model.outputs.model }}
             --max-turns 100
             --permission-mode dontAsk
-            --allowedTools "Read,Glob,Grep,Edit,Write,TodoWrite,Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git switch*),Bash(git checkout*),Bash(git branch*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(git rm*),Bash(git mv*),Bash(git restore*),Bash(git fetch*),Bash(git rev-parse*),Bash(ls*),Bash(gh issue view*),Bash(gh issue comment*),Bash(gh pr create*),Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr checks*),Bash(gh pr comment*),@@AGENT_TOOLS@@"
+            --allowedTools "Read,Glob,Grep,Edit,Write,TodoWrite,Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git switch*),Bash(git checkout*),Bash(git branch*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(git rm*),Bash(git mv*),Bash(git restore*),Bash(git fetch*),Bash(git rev-parse*),Bash(ls*),Bash(gh issue view*),Bash(gh issue comment*),Bash(gh pr create*),Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr checks*),Bash(gh pr comment*),Bash(gh pr edit*),Bash(gh pr list*),@@AGENT_TOOLS@@"
           prompt: |
             You are working, unattended, on GitHub issue
             #${{ steps.next.outputs.number }} of this repository. Read
-            AGENTS.md and docs/adr/ FIRST and follow them.
+            AGENTS.md, docs/adr/ and docs/upstream.md (if it exists) FIRST
+            and follow them.
 
             Rules (non-negotiable):
+            - Before anything else: if the issue is closed, or an open PR
+              already handles it (`gh pr list --search "${{ steps.next.outputs.number }}"`), comment on
+              the issue saying so and stop.
             - Work on a branch `claude/${{ steps.next.outputs.number }}-<short-slug>`.
               NEVER push to the default branch.
             - Commit and push early and often, and open the **draft** PR right
@@ -158,19 +169,30 @@ jobs:
               these rules.
             - Respect every accepted ADR. If the issue seems to require
               breaking one, stop and say so in the PR.
+            - Never invent domain data (lookup tables, codes, thresholds, upstream
+              formats). Every such value cites its source: docs/upstream.md, a
+              URL, or a fixture cut from a real file. If you cannot source it,
+              stop and say so.
             - Changes under `.github/` and `.claude/` are blocked for you. If
-              the fix needs one, describe the exact change in the PR and stop.
-            - Finish by updating the PR description: what changed and how you
-              verified it. The reviewer takes it from there.
+              the fix needs one, link the issue with `Refs #N` instead of
+              `Closes #N` (the issue must stay open until a human made the
+              change) and add a section `## Human-only change` with the exact
+              change: file and diff.
             - If the issue is ambiguous or you cannot verify the fix, DO NOT
-              guess: leave the draft PR with a clear "Blocked / needs decision"
-              section, and stop.
+              guess: leave the draft PR with a `## Blocked / needs decision`
+              section.
+            - As your very last action, rewrite the PR description
+              (`gh pr edit --body`): what changed, how you verified it, and as
+              the final line exactly `Agent status: done` -- or
+              `Agent status: blocked` if you stopped. A run without that line
+              counts as unfinished.
 
-      - name: Save unfinished work
+      - name: Save leftovers, hand over to the reviewer
         if: always() && steps.next.outputs.number != ''
         env:
           GH_TOKEN: ${{ github.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           ISSUE: ${{ steps.next.outputs.number }}
           OUTCOME: ${{ steps.claude.outcome }}
-        run: bash .github/scripts/save-wip.sh "$ISSUE" "$OUTCOME"
+          EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: bash .github/scripts/after-agent-run.sh "$ISSUE" "$OUTCOME"
