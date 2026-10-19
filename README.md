@@ -1,5 +1,7 @@
 # repo-standard
 
+[![Self-test](https://github.com/chriguschneider/repo-standard/actions/workflows/selftest.yml/badge.svg)](https://github.com/chriguschneider/repo-standard/actions/workflows/selftest.yml)
+
 How I set up a GitHub repo so Claude agents can work on it: conventions,
 decisions, CI, releases and the agent automation, as a scaffold you can
 render for a new repo and a check you can run against an old one.
@@ -108,8 +110,8 @@ closest existing one.
 
 A personal standard, used on my own repos and shared because the set-up is
 the interesting part. Issues and ideas are welcome; there is no support
-promise. The four types render and pass their checks locally; the GitHub
-side has been proven in the repos it was distilled from.
+promise. Every push renders all four types and runs their checks (badge above);
+the GitHub side has been proven in the repos it was distilled from.
 
 ## Licence
 
