@@ -164,7 +164,8 @@ a comment naming the check, instead of sitting silently.
 CI also runs weekly, so tool or upstream drift shows up without commits.
 When CI fails on `@@BRANCH@@`, `ci-watch.yml` opens one issue "CI is red on
 @@BRANCH@@" (no P-label, so no agent picks it up) and closes it when CI is
-green again. `release.yml` refuses a tag whose commit has no green CI run.
+green again. In types with tag releases, `release.yml` refuses a tag whose
+commit has no green CI run.
 
 Auto-merge needs branch protection with required checks on
 `@@BRANCH@@`. Without it (private repo on a free plan) use mode `minimal`.

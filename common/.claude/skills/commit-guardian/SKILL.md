@@ -43,7 +43,7 @@ triggers when a commit is *imminent*.
 
 From AGENTS.md:
 
-- **Version sync** — @@VERSION_SYNC_RULE@@
+- **Kept in sync** — @@VERSION_SYNC_RULE@@
 - @@CHANGELOG_GUARD_RULE@@
 - **English only** in code, comments, commit messages.
 - **Commit trailer** — an AI-authored commit carries an honest

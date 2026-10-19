@@ -1,7 +1,8 @@
 name: Self-test
 
-# Render every type and run the rendered repo's own checks, so a change to
-# the standard that breaks a type fails here, not in the next new repo.
+# Render every type and variant and run the rendered repo's own checks, so a
+# change to the standard that breaks a type fails here, not in the next new
+# repo.
 
 on:
   push:
@@ -14,16 +15,26 @@ permissions:
 
 jobs:
   render:
-    name: ${{ matrix.type }} (${{ matrix.mode }})
+    name: ${{ matrix.type }} ${{ matrix.variants }} (${{ matrix.mode }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { type: generic, mode: minimal, domain: demo-generic }
-          - { type: python, mode: opt-in, domain: demo_tool }
-          - { type: ha-integration, mode: autopilot, domain: demo_thing }
-          - { type: lovelace-card, mode: opt-in, domain: demo-card }
+          - { type: generic, mode: minimal, domain: demo-generic, variants: "" }
+          - { type: python, mode: opt-in, domain: demo_tool, variants: "" }
+          - { type: ha-integration, mode: autopilot, domain: demo_thing, variants: "" }
+          - { type: ha-integration, mode: opt-in, domain: demo_thing, variants: "device smoke" }
+          - { type: ha-integration, mode: opt-in, domain: demo_thing, variants: "with-card" }
+          - { type: lovelace-card, mode: opt-in, domain: demo-card, variants: "" }
+          - { type: website, mode: opt-in, domain: demo-site, variants: "" }
+          - { type: website, mode: minimal, domain: demo-site, variants: "" }
+    env:
+      TYPE: ${{ matrix.type }}
+      MODE: ${{ matrix.mode }}
+      DOMAIN: ${{ matrix.domain }}
+      VARIANTS: ${{ matrix.variants }}
+      DEMO: ${{ github.workspace }}/../demo
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,64 +46,81 @@ jobs:
 
       - name: Render
         run: |
-          python3 render.py --type "${{ matrix.type }}" --mode "${{ matrix.mode }}" \
-            --out "$RUNNER_TEMP/demo" \
+          args=()
+          for v in $VARIANTS; do args+=(--variant "$v"); done
+          python3 render.py --type "$TYPE" --mode "$MODE" "${args[@]}" \
+            --out "$DEMO" \
             --set OWNER=octocat --set "AUTHOR=Mona Lisa" \
-            --set REPO=demo --set "NAME=Demo" --set DOMAIN="${{ matrix.domain }}" \
+            --set REPO=demo --set "NAME=Demo" --set DOMAIN="$DOMAIN" \
+            --set SITE_URL=https://example.org \
             --set "DESCRIPTION=A repo rendered by the repo-standard self-test." \
             | tee render.log
           if grep -q "unresolved placeholders" render.log; then exit 1; fi
-          cd "$RUNNER_TEMP/demo" && git init -q
+          cd "$DEMO" && git init -q
 
       - name: Standard check
-        run: python3 check.py "$RUNNER_TEMP/demo"
+        run: python3 check.py "$DEMO"
 
       - name: actionlint
         run: |
           bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-          cd "$RUNNER_TEMP/demo" && "$GITHUB_WORKSPACE/actionlint" -color
+          cd "$DEMO" && "$GITHUB_WORKSPACE/actionlint" -color
 
       - name: zizmor (workflow security)
         run: |
           pip install zizmor==1.31.1
-          cd "$RUNNER_TEMP/demo" && zizmor --persona regular --no-progress .
+          cd "$DEMO" && zizmor --persona regular --no-progress .
 
       - name: Checks (generic)
         if: matrix.type == 'generic'
-        working-directory: ${{ runner.temp }}/demo
-        run: bash scripts/check.sh
+        run: cd "$DEMO" && bash scripts/check.sh
 
       - name: Checks (python)
         if: matrix.type == 'python'
-        working-directory: ${{ runner.temp }}/demo
         run: |
+          cd "$DEMO"
           pip install -e ".[test]" build
           ruff check src tests
           pytest -q
           python -m build
 
-      - name: Checks (ha-integration)
-        if: matrix.type == 'ha-integration'
-        working-directory: ${{ runner.temp }}/demo
-        run: |
-          pip install -r requirements_test.txt
-          ruff check custom_components tests
-          pytest -q
-          rm -rf .pytest_cache
-          docker run --rm -v "$PWD":/github/workspace ghcr.io/home-assistant/hassfest
-
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: matrix.type == 'lovelace-card'
+        if: matrix.type == 'lovelace-card' || matrix.type == 'website' || contains(matrix.variants, 'with-card')
         with:
           node-version: "22"
 
+      - name: Checks (ha-integration)
+        if: matrix.type == 'ha-integration'
+        run: |
+          cd "$DEMO"
+          pip install -r requirements_test.txt
+          ruff check custom_components tests
+          pytest -q
+          if [ -f package.json ]; then npm install --no-audit --no-fund && npx vitest run; fi
+          rm -rf .pytest_cache node_modules
+          docker run --rm -v "$PWD":/github/workspace ghcr.io/home-assistant/hassfest
+
       - name: Checks (lovelace-card)
         if: matrix.type == 'lovelace-card'
-        working-directory: ${{ runner.temp }}/demo
         run: |
+          set -euo pipefail
+          cd "$DEMO"
           npm install --no-audit --no-fund
-          npm audit --audit-level=high
+          npm audit --omit=dev --audit-level=high
           npm run lint
           npm run typecheck
           npm test
+          npm run build
+          first="$(sha256sum dist/*.js)"
+          npm run build
+          [ "$first" = "$(sha256sum dist/*.js)" ] || { echo "::error::build is not reproducible"; exit 1; }
+
+      - name: Checks (website)
+        if: matrix.type == 'website'
+        env:
+          ASTRO_TELEMETRY_DISABLED: "1"
+        run: |
+          cd "$DEMO"
+          npm install --no-audit --no-fund
+          npm audit --omit=dev --audit-level=high
           npm run build

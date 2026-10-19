@@ -60,7 +60,10 @@
         "SINGLE_CONFIG_ENTRY": "",
         "HOLD_EXAMPLES": "e.g. config-flow UX, unique-id or entity naming that users build automations on, anything that changes how a device is identified",
         "STRUCTURE": "custom_components/@@DOMAIN@@/\n├── __init__.py          # entry setup/unload (succeeds while the device is off)\n├── client.py            # device API: probe + state, no HA imports\n├── coordinator.py       # DataUpdateCoordinator, typed ConfigEntry + runtime_data\n├── config_flow.py       # host -> probe -> unique id = serial; options flow\n├── entity.py            # device info, availability follows the data\n├── sensor.py            # entities\n├── diagnostics.py       # redacted diagnostics download\n├── const.py             # DOMAIN, VERSION, constants\n├── brand/               # icon.png, icon@2x.png\n├── strings.json / translations/\n└── manifest.json\ntests/                   # pytest + pytest-homeassistant-custom-component\n├── fixtures/            # trimmed real device responses (tests/README.md)\n└── README.md            # fixture inventory\ndocs/adr/                # decisions"
-      }
+      },
+      "conflicts": [
+        "with-card"
+      ]
     },
     "smoke": {
       "description": "Weekly live smoke test against the upstream (tests/tools/smoke_test.py); a failure opens one issue for a human.",
@@ -86,6 +89,13 @@
       },
       "required_checks": [
         "Card tests"
+      ],
+      "conflicts": [
+        "device"
+      ],
+      "post_render": [
+        "npm install --no-audit --no-fund   # creates package-lock.json; commit it (CI runs npm ci)",
+        "npx vitest run"
       ]
     }
   }

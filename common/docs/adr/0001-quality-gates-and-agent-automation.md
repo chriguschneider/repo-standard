@@ -18,9 +18,7 @@ Adopt the standard as rendered on @@DATE@@ (type `@@TYPE@@`, mode
 
 - **CI on every push and PR** (`ci.yml`). Its jobs are required status
   checks on `@@BRANCH@@`; the branch is PR-only, `strict` off.
-- **Tag-triggered release** (`release.yml`): an annotated `vX.Y.Z` tag
-  becomes a GitHub release only if it matches the declared version and
-  `CHANGELOG.md` has a non-empty section for it.
+@@RELEASE_ADR_LINE@@
 - **CodeQL** `security-extended` on push, PR and weekly.
 - **Dependabot** weekly for GitHub Actions and the package ecosystem.
 - **Agent workflows**: opt-in via `agent:go`, `@claude` for

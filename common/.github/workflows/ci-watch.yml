@@ -45,7 +45,7 @@ jobs:
                 gh issue comment "$issue" -R "$REPO" --body "Still red ($CONCLUSION): $RUN_URL"
               else
                 gh issue create -R "$REPO" --title "$TITLE" \
-                  --body "CI ended **$CONCLUSION** on @@BRANCH@@: $RUN_URL. Nothing should be released until it is green again (release.yml refuses a tag whose commit has no green CI run). This issue closes itself when CI passes."
+                  --body "CI ended **$CONCLUSION** on @@BRANCH@@: $RUN_URL. Nothing should be released or promoted until it is green again. This issue closes itself when CI passes."
               fi
               ;;
           esac

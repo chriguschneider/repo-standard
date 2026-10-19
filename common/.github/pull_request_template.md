@@ -23,5 +23,5 @@ How was this tested?
 
 - [ ] My code follows the conventions in AGENTS.md and the accepted ADRs
 - [ ] I have performed a self-review of my own code
-- [ ] I have updated the documentation and CHANGELOG.md if applicable
+- [ ] @@CHANGELOG_PR_LINE@@
 - [ ] Checks pass locally: @@CHECKS_INLINE@@

@@ -36,12 +36,15 @@ and [`weather-station-card`](https://github.com/chriguschneider/weather-station-
 
 ## Types and modes
 
-| Type | For | Checks |
-|---|---|---|
-| `generic` | anything without its own toolchain yet: config, scripts, docs | `scripts/check.sh` (grows with the repo) |
-| `python` | a Python package or command-line tool | ruff, pytest; release attaches sdist + wheel |
-| `ha-integration` | a Home Assistant custom integration (HACS) | hassfest, HACS, ruff, pytest; zip release |
-| `lovelace-card` | a Home Assistant dashboard card (HACS) | HACS, eslint, tsc, vitest, build; committed `dist/` |
+| Type | For | Checks | Ships |
+|---|---|---|---|
+| `generic` | anything without its own toolchain yet: config, scripts, docs | `scripts/check.sh` (grows with the repo) | tag release |
+| `python` | a Python package or command-line tool | ruff, pytest | tag release with sdist + wheel |
+| `ha-integration` | a Home Assistant custom integration (HACS) | hassfest, HACS, ruff, pytest | zip release for HACS |
+| `lovelace-card` | a Home Assistant dashboard card (HACS) | HACS, eslint, tsc, vitest + jsdom smoke test, bundle budget | committed `dist/`, tag release |
+| `website` | an Astro static site on Cloudflare Pages | `astro check`, build, internal link and CSP checks | promotion: `test` (preview) → `main` (live), no tags |
+
+Variants of `ha-integration` (`--variant`, combinable unless noted): `device` (a device on the LAN: host, serial as unique id, several entries, works while the device is off), `smoke` (weekly smoke test against the upstream, opens an issue on drift), `with-card` (ships its own dashboard card inside the integration; not with `device`).
 
 | Mode | Label + `@claude` | Reviewer + auto-merge | Autopilot |
 |---|:-:|:-:|:-:|
@@ -72,6 +75,8 @@ python3 render.py --type python --mode opt-in --out ~/code/my-tool \
   --set REPO=my-tool --set "NAME=My Tool" --set DOMAIN=my_tool \
   --set "DESCRIPTION=One sentence on what it does."
 # fill every TODO(repo-standard) it lists, run the `next:` steps
+# variants: add --variant device (and/or smoke, with-card) for ha-integration
+# website: --type website --set SITE_URL=https://example.org; its default branch is `test`
 
 # 2. publish
 cd ~/code/my-tool && git init -b master && git add -A

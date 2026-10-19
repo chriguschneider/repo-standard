@@ -109,10 +109,18 @@ def main() -> None:
     ap.add_argument("--type", required=True)
     ap.add_argument("--branch", help="default branch (default: the type's BRANCH, else master)")
     ap.add_argument("--only", default="labels,settings,protection")
+    ap.add_argument("--variant", action="append", default=[], help="variants used when rendering")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     spec = json.loads((ROOT / "types" / a.type / "type.json").read_text(encoding="utf-8"))
     placeholders = spec.get("placeholders", {})
+    # Variants bring their own required checks and labels (e.g. "Card tests").
+    variants = spec.get("variants", {})
+    for name in a.variant:
+        if name not in variants:
+            sys.exit(f"unknown variant {name!r} for {a.type}")
+        spec["required_checks"] = [*spec["required_checks"], *variants[name].get("required_checks", [])]
+        spec.setdefault("labels", {}).update(variants[name].get("labels", {}))
     branch = a.branch or placeholders.get("BRANCH", "master")
     production = placeholders.get("PRODUCTION_BRANCH")
     steps = set(a.only.split(","))

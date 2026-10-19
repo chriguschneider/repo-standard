@@ -35,7 +35,7 @@ flowchart TD
     I --> F
     J --> L[Human checks, merges]
     L --> F
-    I -.-> M[Release: human bumps version + changelog,<br/>pushes an annotated tag, release.yml publishes]
+    I -.-> M[Release: human bumps version + changelog,<br/>pushes an annotated tag, release.yml publishes<br/>website: human approves the preview, fast-forwards main]
 ```
 
 Three ways in, one way out:
@@ -126,6 +126,11 @@ Agents start from zero every run, so everything they need is in the repo:
 | A lookup table the agent invented shipped in a release; hand-written fixtures hid a broken default behind 100 green tests | Domain data cites a source (`docs/upstream.md`), fixtures are trimmed real files |
 | Two agent PRs for the same issue blocked the autopilot for 11 days | The agent first checks the issue is open and has no PR; the autopilot names the blocking PR in its summary |
 | A push with the workflow token never started the follow-up workflow | Known GitHub rule (no recursion); where a follow-up must run, start it with `gh workflow run` |
+| A conflict in a committed bundle was merged by hand and shipped broken | Rebuild on conflict, never hand-merge generated files; CI checks committed output against its sources |
+| A README image vanished in HACS after a rename | HACS shows the README frozen at the release tag and strips relative paths and `<picture>`: absolute URLs, never renamed between releases |
+| The card editor's defaults drifted from the runtime defaults; a row vanished on a live dashboard | One source of defaults, and a test that the editor schema covers the stub config |
+| A dev-only `npm audit` finding blocked unrelated PRs three times | Only runtime advisories block (`--omit=dev`); the full audit reports |
+| The repo had agent workflows but no tests; the agent was never used | A test suite is a precondition for `agent:go` (docs: *Sizing an issue*) |
 | A release was cut from a tag that did not match the code | Release only if the tag equals the declared version and the changelog has a non-empty section |
 | The release title showed the commit subject instead of the tag message | Title read from the annotated tag via the API (checkout overwrites the tag locally) |
 | HACS showed zero downloads | Integrations ship a zip asset with `zip_release`, guarded by a test |

@@ -48,6 +48,9 @@ MODES = ("minimal", "opt-in", "autopilot")
 # Workflows that only make sense with branch protection + auto-merge.
 REVIEW_ONLY = {".github/workflows/claude-review.yml"}
 IDENTITY = ("OWNER", "AUTHOR")
+RELEASE_ADR_LINE = """- **Tag-triggered release** (`release.yml`): an annotated `vX.Y.Z` tag
+  becomes a GitHub release only if it matches the declared version and
+  `CHANGELOG.md` has a non-empty section for it."""
 CHANGELOG_RULES = """### Changelog entries
 
 Every PR that changes user-visible behavior adds an entry to
@@ -192,6 +195,17 @@ def main() -> None:
             "**Changelog** — a user-visible change adds an entry under\n"
             "  `## [Unreleased]`."
         ),
+        # Release/changelog bits of shared files; types without tag
+        # releases (website) blank or replace them.
+        "RELEASE_BADGE": '<a href="https://github.com/@@OWNER@@/@@REPO@@/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/@@OWNER@@/@@REPO@@" /></a>',
+        "CHANGELOG_LINK": '&nbsp;·&nbsp;\n<a href="CHANGELOG.md">Changelog</a>',
+        "CHANGELOG_PR_LINE": "I have updated the documentation and CHANGELOG.md if applicable",
+        "CHANGELOG_TASK_LINE": "Docs / CHANGELOG entry if user-visible",
+        "RELEASE_ADR_LINE": RELEASE_ADR_LINE,
+        # Extra regex alternatives (starting with `|`) for paths the reviewer
+        # never auto-merges, and extra env lines for the agent jobs.
+        "SENSITIVE_EXTRA": "",
+        "AGENT_ENV": "",
         # Type-specific pitfalls for AGENTS.md (e.g. Home Assistant quirks).
         "TYPE_RULES": "",
         "REVIEW_FIX_RULE": (
@@ -210,6 +224,10 @@ def main() -> None:
             sys.exit(f"unknown variant {name!r} for {args.type}; known: {', '.join(known) or 'none'}")
         values.update(known[name].get("placeholders", {}))
         values.update(snippets(type_dir / "variants" / name))
+    for name in args.variant:
+        clash = sorted(set(known[name].get("conflicts", [])) & set(args.variant))
+        if clash:
+            sys.exit(f"variant {name!r} cannot be combined with {', '.join(clash)}")
     values["VARIANTS"] = ", ".join(args.variant) or "none"
     for item in args.set:
         key, sep, value = item.partition("=")
@@ -282,8 +300,11 @@ def main() -> None:
         print("fill in by hand (TODO(repo-standard)):")
         for t in todos:
             print("  ", t)
-    for step in spec.get("post_render", []):
-        print("next:", step)
+    steps = list(spec.get("post_render", []))
+    for name in args.variant:
+        steps += known[name].get("post_render", [])
+    for step in steps:
+        print("next:", substitute(step, values, set()))
 
 
 def _lines(path: Path) -> list[str]:

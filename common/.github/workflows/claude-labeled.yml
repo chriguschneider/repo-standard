@@ -59,6 +59,7 @@ jobs:
     env:
       ISSUE: ${{ github.event.issue.number || github.event.inputs.issue }}
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+      @@AGENT_ENV@@
     steps:
       # Outbound traffic: `audit` logs every connection, `block` allows only
       # the list. Start with audit, switch to block once a few runs show the

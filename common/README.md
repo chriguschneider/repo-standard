@@ -6,7 +6,7 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
   @@BADGES@@
   <a href="https://github.com/@@OWNER@@/@@REPO@@/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/@@OWNER@@/@@REPO@@/ci.yml?branch=@@BRANCH@@&label=CI" /></a>
-  <a href="https://github.com/@@OWNER@@/@@REPO@@/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/@@OWNER@@/@@REPO@@" /></a>
+  @@RELEASE_BADGE@@
   <a href="https://github.com/@@OWNER@@/@@REPO@@/commits/@@BRANCH@@"><img alt="Last commit" src="https://img.shields.io/github/last-commit/@@OWNER@@/@@REPO@@" /></a>
   @@FUNDING_BADGE@@
   <a href="#ai-assisted-development"><img alt="AI Assisted" src="https://img.shields.io/badge/AI-assisted-2196F3.svg" /></a>
@@ -15,8 +15,7 @@
 <p align="center">
   @@LINKS@@
   <a href="https://github.com/@@OWNER@@/@@REPO@@/issues">Issues</a>
-  &nbsp;·&nbsp;
-  <a href="CHANGELOG.md">Changelog</a>
+  @@CHANGELOG_LINK@@
 </p>
 
 ## What it does

@@ -23,7 +23,7 @@ The modules and tests this touches (at most about four).
 ## Done when
 
 - [ ] The exact tests that prove it (names or behaviour)
-- [ ] Docs / CHANGELOG entry if user-visible
+- [ ] @@CHANGELOG_TASK_LINE@@
 
 ## Out of scope
 
