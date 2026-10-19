@@ -1,0 +1,31 @@
+{
+  "name": "@@REPO@@",
+  "version": "0.0.0",
+  "private": true,
+  "description": "@@DESCRIPTION@@",
+  "type": "module",
+  "homepage": "@@SITE_URL@@",
+  "bugs": { "url": "https://github.com/@@OWNER@@/@@REPO@@/issues" },
+  "repository": { "type": "git", "url": "https://github.com/@@OWNER@@/@@REPO@@.git" },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "check": "astro check",
+    "check:links": "node scripts/check-links.mjs",
+    "check:csp": "node scripts/check-csp.mjs",
+    "build": "astro check && astro build && node scripts/check-links.mjs && node scripts/check-csp.mjs",
+    "preview": "astro preview",
+    "deploy:status": "node scripts/deploy-status.mjs"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.4.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^6.0.3"
+  }
+}

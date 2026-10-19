@@ -1,0 +1,21 @@
+---
+// Cloudflare Pages serves dist/404.html for every unknown path, with status 404.
+import Base from '../layouts/Base.astro';
+import { DEFAULT_LOCALE, dictionary, LOCALES, localeRoot } from '../i18n';
+
+const t = dictionary(DEFAULT_LOCALE);
+---
+
+<Base title={t.notFound.title} canonical={false}>
+  {
+    LOCALES.map((l) => (
+      <section lang={dictionary(l).htmlLang}>
+        <h1>{dictionary(l).notFound.title}</h1>
+        <p>{dictionary(l).notFound.text}</p>
+        <p>
+          <a href={localeRoot(l)}>{dictionary(l).notFound.back}</a>
+        </p>
+      </section>
+    ))
+  }
+</Base>

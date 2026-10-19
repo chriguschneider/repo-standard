@@ -1,0 +1,50 @@
+# Cloudflare Pages response headers (https://developers.cloudflare.com/pages/configuration/headers/).
+# Changing this file changes what browsers enforce for every visitor: a PR
+# that touches it needs a human (AGENTS.md, "Site rules").
+#
+# Content-Security-Policy: everything is denied (`default-src 'none'`) and
+# only what this site loads from itself is allowed back. There is no
+# 'unsafe-inline': Astro ships every script and stylesheet as a file
+# (astro.config.ts) and scripts/check-csp.mjs fails the build on anything
+# inline. Every exception gets a comment line below saying what needs it,
+# since when, and how to remove it again. Current exceptions: none.
+#
+# Known exception to expect: Cloudflare Web Analytics, when switched on in
+# the dashboard, injects a beacon into every page. Without
+# `script-src https://static.cloudflareinsights.com` and
+# `connect-src https://cloudflareinsights.com` the browser blocks it and no
+# visit is ever counted, silently.
+#
+# frame-ancestors 'none' and X-Frame-Options say the same thing, for new and
+# old browsers: nobody may embed this site.
+#
+# HSTS is not set here but on the Cloudflare zone (SSL/TLS -> Edge
+# Certificates), so it also covers redirects and the apex domain.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()
+
+# Files under /_astro/ carry a content hash in their name: new content, new
+# name. Browsers may keep them for a year without asking again. Everything
+# else keeps the Pages default and is revalidated on every request, so a
+# replaced file is live at once. Only works if the zone's "Browser Cache
+# TTL" is "Respect Existing Headers"; a fixed value there overrides this.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Read by scripts/deploy-status.mjs to see which commit is live; never cached.
+/build.json
+  Cache-Control: no-store
+
+# Every *.pages.dev address (the preview branch, per-commit previews and the
+# production deployment's own pages.dev alias) stays out of search indexes,
+# in addition to the noindex tag and robots.txt of preview builds. The real
+# domain is not matched by these rules.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex

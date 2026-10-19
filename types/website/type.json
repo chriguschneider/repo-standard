@@ -1,0 +1,57 @@
+{
+  "description": "Static website (Astro, i18n with a typed dictionary, content collections) deployed by Cloudflare Pages' Git integration. No tags: PRs land on the default branch `test` (preview), the owner promotes to `main` (production) by fast-forward.",
+  "required": [
+    "REPO",
+    "NAME",
+    "DESCRIPTION",
+    "SITE_URL"
+  ],
+  "skip": [
+    "CHANGELOG.md"
+  ],
+  "placeholders": {
+    "TYPE": "website",
+    "BRANCH": "test",
+    "PRODUCTION_BRANCH": "main",
+    "PAGES_PROJECT": "@@REPO@@",
+    "PREVIEW_URL": "https://@@BRANCH@@.@@PAGES_PROJECT@@.pages.dev",
+    "DOMAIN": "@@REPO@@",
+    "CODEQL_LANGUAGE": "javascript-typescript",
+    "CHECKS_INLINE": "`npm run build`",
+    "AGENT_CHECKS": "`npm ci`, then `npm run build` (runs `astro check`, `astro build`,\nthe link check and the CSP check). A content or text change in one\nlanguage needs the same keys in every dictionary under `src/i18n/`.",
+    "AGENT_TOOLS": "Bash(npm ci*),Bash(npm run build*),Bash(npm run check*),Bash(npx astro check*)",
+    "EGRESS_EXTRA": "",
+    "DEPENDABOT_EXTRA": "- package-ecosystem: \"npm\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    npm-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"",
+    "HOLD_EXAMPLES": "e.g. a visible layout, design or wording change the issue leaves open, a changed URL that other sites link to, the CSP in `public/_headers` or the indexing switches in `src/config.ts`; a visible change the issue specifies exactly is merged, since it reaches the preview only and the owner checks the preview before promoting",
+    "VERSION_SYNC_RULE": "there is no version number; a deployment is identified by its commit\n  (`/build.json`). What must stay in sync instead: a committed generated\n  file (an image, a PDF, a data file built from other sources) carries a\n  fingerprint of its sources, and a check in `npm run build` fails when\n  they drift. Flag a diff that changes such sources without the\n  regenerated file and its fingerprint.",
+    "CHANGELOG_GUARD_RULE": "**No changelog** — this repo has none. Flag a diff that adds a\n  `CHANGELOG.md` or a version bump; the PR title is the record.",
+    "CHANGELOG_RULES": "### No changelog, no versions\n\nA website is not installed, so there is no `CHANGELOG.md`, no version\nnumber and no tag. The record is the history itself:\n\n- **PR titles** on `@@BRANCH@@` (squash-merged, Conventional Commits, e.g.\n  `feat(content): add the about page`). Write the title for the owner who\n  decides whether to promote: what changes for a visitor.\n- **The deployment history** in Cloudflare Pages: every deployment names\n  its branch and commit, and `/build.json` on the live site says which\n  commit it serves.",
+    "BUG_LOGS_HINT": "The page URL, what you expected, what you saw; browser console output (F12 → Console) if something does not load.",
+    "BUG_ENVIRONMENT": "- **Page**: (full URL)\n- **Browser / device**: (e.g., Firefox 140 on Android)",
+    "STRUCTURE": "src/\n├── config.ts             # SITE_URL, PREVIEW (from CF_PAGES_BRANCH), NOINDEX\n├── i18n/                 # types.ts (Dictionary, LOCALES), de.ts, en.ts\n├── content.config.ts     # zod schemas of the content collections\n├── content/posts/        # one Markdown file per post\n├── layouts/ components/  # page shell, one component per page\n├── lib/                  # helpers (posts, URLs)\n└── pages/                # routes: one line per language around a component\npublic/_headers           # CSP, cache rules, noindex on *.pages.dev\nscripts/                  # check-links, check-csp (build), deploy-status (manual)\ndocs/adr/                 # decisions",
+    "RELEASE_STEPS": "There are no tags and no GitHub releases. Releasing means promoting\nthe tested `@@BRANCH@@` to `@@PRODUCTION_BRANCH@@`:\n\n| Branch | Cloudflare Pages serves | Who writes |\n|---|---|---|\n| `@@BRANCH@@` (default branch) | @@PREVIEW_URL@@ (banner, noindex) | PRs, by humans and agents |\n| `@@PRODUCTION_BRANCH@@` | @@SITE_URL@@ | the owner only, by fast-forward |\n\n1. **Land on `@@BRANCH@@`.** Every change is a PR into `@@BRANCH@@` with a\n   green `Build and check`. Pages rebuilds the preview within a minute or\n   two of the merge.\n2. **Show the preview.** Name the changed pages with direct links on\n   @@PREVIEW_URL@@; for a visible change add a screenshot.\n   `npm run deploy:status -- --preview` confirms the preview serves the\n   merged commit.\n3. **Wait for approval.** Approval is the owner saying explicitly that this\n   state of `@@BRANCH@@` should go live (\"promote\", \"ship it\"). A green CI, an\n   auto-merge into `@@BRANCH@@`, an approved PR, \"looks good\" on a wording or a\n   direction is **not** approval. Agents never promote.\n4. **Promote** (owner, own login), fast-forward only:\n\n   ```\n   git switch @@BRANCH@@ && git pull --ff-only\n   git push origin @@BRANCH@@:@@PRODUCTION_BRANCH@@\n   ```\n\n   `@@PRODUCTION_BRANCH@@` is protected: no force push, linear history, and the\n   commit needs a green `Build and check` (it has one from its run on\n   `@@BRANCH@@`). If the push is rejected as non-fast-forward, `@@PRODUCTION_BRANCH@@` has\n   commits `@@BRANCH@@` lacks: bring them into `@@BRANCH@@` by PR, check the preview,\n   ask again.\n5. **Verify live.** `npm run deploy:status` waits until @@SITE_URL@@ serves\n   `origin/@@PRODUCTION_BRANCH@@` and fails otherwise (a failed Pages build silently\n   keeps the previous deployment online). Then open the changed pages on\n   the live site.\n\nOnly part of `@@BRANCH@@` approved? Do not cherry-pick onto `@@PRODUCTION_BRANCH@@`;\nrevert the rest on `@@BRANCH@@` (a PR) and promote that. To roll back, revert on\n`@@BRANCH@@` and promote again; a rollback in the Pages dashboard is for\nemergencies and leaves `@@PRODUCTION_BRANCH@@` and the live site apart until the\nnext promotion.",
+    "TESTING": "- `npm ci` once (Node version from `.nvmrc`, the same Cloudflare uses).\n- **Everything**: `npm run build`, the command CI and Cloudflare Pages run:\n  `astro check` (types, i18n parity, content schemas), `astro build`, then\n  `scripts/check-links.mjs` (every internal link and `#anchor` in `dist/`\n  resolves) and `scripts/check-csp.mjs` (nothing inline the CSP would\n  block). A red build is never deployed.\n- **Types only**: `npm run check`.\n- **As a preview**: `CF_PAGES_BRANCH=@@BRANCH@@ npm run build && npm run preview`\n  shows the banner, the noindex tag and the closed `robots.txt`.\n- Nothing in the build touches the network. `scripts/deploy-status.mjs`\n  does, so it is a manual step of the release and never runs in CI.",
+    "TYPE_RULES": "### Site rules\n\n- **Never commit or push to `@@PRODUCTION_BRANCH@@`.** Work and PRs go to `@@BRANCH@@`;\n  only the owner promotes (Release procedure).\n- **Telemetry off**: run Astro with `ASTRO_TELEMETRY_DISABLED=1` in the\n  environment (CI sets it; set it in your shell and in the Cloudflare Pages\n  project), otherwise every build reports to Astro's telemetry endpoint.\n- **Every language, every key**: texts live in `src/i18n/<locale>.ts`, typed\n  as `Dictionary` (`src/i18n/types.ts`). Add a key to all dictionaries in\n  the same change; `astro check` fails otherwise. No text in components.\n- **Content follows its schema** (`src/content.config.ts`). A new field\n  goes into the schema first, with a comment saying what it is for.\n- **Nothing inline**: `<script>` and `<style>` in components are fine\n  (Astro bundles them into files), but no `is:inline`, no `style=` or\n  `on*=` attributes, no `set:html` with markup from elsewhere. The CSP in\n  `public/_headers` would block them in production only;\n  `scripts/check-csp.mjs` fails the build first. A new external source\n  (font, embed, analytics) is a CSP exception with a comment in\n  `public/_headers` and needs the owner.\n- **Owner's switches**: `NOINDEX` in `src/config.ts`, the CSP and\n  `public/_headers` change only on the owner's explicit request. A preview\n  must stay closed to search engines (`PREVIEW`, checked in CI).\n- **URLs are public API**: renaming or removing a page breaks links from\n  elsewhere; add a redirect in `public/_redirects` in the same PR."
+  },
+  "required_checks": [
+    "Build and check"
+  ],
+  "labels": {
+    "area-content": [
+      "0e8a16",
+      "Texts, posts, translations"
+    ],
+    "area-design": [
+      "1d76db",
+      "Layout, styles, components"
+    ]
+  },
+  "post_render": [
+    "npm install   # creates package-lock.json, commit it",
+    "npm run build",
+    "git init -b test   # test is the default branch; github-setup.py creates main from it",
+    "Cloudflare Pages: connect the repo (Git integration); production branch main; build command `npm run build`; output directory `dist`; env ASTRO_TELEMETRY_DISABLED=1; preview branches: test (or all, then PR branches get previews too)",
+    "optional: add the Cloudflare Pages check to required_checks in branch protection once it has reported once",
+    "if the Pages project name differs from the repo name, render with --set PAGES_PROJECT=<name> (preview URL)"
+  ]
+}

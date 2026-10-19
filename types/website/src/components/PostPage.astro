@@ -1,0 +1,27 @@
+---
+import { render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { dictionary, localeRoot } from '../i18n';
+import type { Post } from '../lib/posts';
+
+interface Props {
+  post: Post;
+}
+
+const { post } = Astro.props;
+const t = dictionary(post.data.lang);
+const { Content } = await render(post);
+const date = post.data.date.toLocaleDateString(t.htmlLang, { year: 'numeric', month: 'long', day: 'numeric' });
+---
+
+<Base title={post.data.title} description={post.data.description} lang={post.data.lang} alternates={{ [post.data.lang]: Astro.url.pathname }}>
+  <article>
+    <h1>{post.data.title}</h1>
+    <p>
+      <time datetime={post.data.date.toISOString().slice(0, 10)}>{date}</time>
+      {post.data.draft && <span class="draft-mark"> {t.post.draft}</span>}
+    </p>
+    <Content />
+  </article>
+  <p><a href={localeRoot(post.data.lang)}>{t.post.back}</a></p>
+</Base>
