@@ -83,6 +83,11 @@ with `allowed-endpoints`, add what is missing, then set
 `egress-policy: block` in the agent workflows (or render with
 `--set EGRESS_POLICY=block`).
 
+If a run reports that it could not run the checks, look at **Tool calls
+refused by the allowlist** in the run's summary: that is an allowlist gap,
+not an agent failure. Add the missing command to `--allowedTools` in the
+workflow (a human change: `.github/` is protected from the agent).
+
 Other rules:
 
 - The prompts tell the agent to follow `AGENTS.md`, `docs/adr/` and
