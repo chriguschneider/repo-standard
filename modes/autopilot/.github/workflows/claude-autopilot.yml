@@ -156,9 +156,11 @@ jobs:
 
             Rules (non-negotiable):
             - The Bash allowlist checks every command of a chain or pipe on
-              its own; shell loops (`for` / `while`) are never matched and get
-              refused. For bulk edits over many files write one script in the
-              repo's language (node / python3) or use the Edit tool per file.
+              its own; shell loops (`for` / `while`) and command substitution
+              are never matched and get refused. For bulk edits over many
+              files write one script in the repo's language (node / python3)
+              or use the Edit tool per file; write PR and comment texts to a
+              file and pass `--body-file`.
               If a call is refused, switch to an allowed equivalent (Edit/Write
               tool, the repo's check script instead of a raw tool call) and
               carry on -- a refused call is never a reason to stop.
