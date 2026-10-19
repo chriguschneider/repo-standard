@@ -203,10 +203,15 @@ def type_checks(repo: Path, repo_type: str | None, spec: dict, variants: list[st
                 report(not same, "type", "brand icon replaced (still the scaffold placeholder)", todo=True)
             else:
                 report(icon.is_file(), "type", "brand/icon.png in the integration")
-    elif repo_type == "lovelace-card":
+    labeled = text(repo / ".github/workflows/claude-labeled.yml")
+    if labeled and repo_type in ("ha-integration", "python"):
+        report("setup-python" in labeled, "type", "agent job sets up Python (else it cannot run the checks)")
+    if labeled and repo_type in ("lovelace-card", "website"):
+        report("setup-node" in labeled, "type", "agent job sets up Node (else it cannot run the checks)")
+    if repo_type == "lovelace-card":
         report(bool(list((repo / "dist").glob("*.js"))), "type", "committed dist/ bundle (run npm run build)", todo=True)
         report(bool(list((repo / "tests").glob("*.test.*"))), "type", "tests/ with vitest tests")
-    elif repo_type == "python":
+    if repo_type == "python":
         report(bool(list((repo / "tests").glob("test_*.py"))), "type", "tests/ with pytest tests")
     elif repo_type == "website":
         report("astro check" in text(repo / "package.json"), "type", "build runs astro check")

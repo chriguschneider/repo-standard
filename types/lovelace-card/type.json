@@ -21,7 +21,8 @@
     "DEPENDABOT_EXTRA": "- package-ecosystem: \"npm\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    npm-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"",
     "AGENT_TOOLS": "Bash(npm ci*),Bash(npm install*),Bash(npm run lint*),Bash(npm run typecheck*),Bash(npm run build*),Bash(npm test*),Bash(npx vitest*),Bash(npm audit*)",
     "EGRESS_EXTRA": "",
-    "REVIEW_FIX_RULE": "2. Do NOT edit `src/` yourself: `dist/` must be rebuilt in the same\n   commit and you cannot run the build. For a substantive problem,\n   comment the exact fix and HOLD (`needs-verification`); a maintainer\n   or `@claude` makes it. Docs, tests and comments you may fix (commit +\n   push). Never push to the default branch."
+    "REVIEW_FIX_RULE": "2. Do NOT edit `src/` yourself: `dist/` must be rebuilt in the same\n   commit and you cannot run the build. For a substantive problem,\n   comment the exact fix and HOLD (`needs-verification`); a maintainer\n   or `@claude` makes it. Docs, tests and comments you may fix (commit +\n   push). Never push to the default branch.",
+    "AGENT_SETUP": "# The agent runs the repo's checks itself.\n- uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0\n  if: steps.token.outputs.present == 'true'\n  with:\n    node-version: \"22\""
   },
   "required_checks": [
     "HACS validation",

@@ -23,7 +23,8 @@
     "TESTING": "- **All checks**: `bash scripts/check.sh` — the same script CI runs.\n- When the repo gains a linter, tests or a build, add them to\n  `scripts/check.sh` instead of a new CI job, so agents and humans run\n  exactly what CI runs.",
     "RELEASE_ASSETS": "",
     "AGENT_TOOLS": "Bash(bash scripts/check.sh*),Bash(shellcheck*)",
-    "EGRESS_EXTRA": ""
+    "EGRESS_EXTRA": "",
+    "AGENT_SETUP": ""
   },
   "required_checks": [
     "Checks"

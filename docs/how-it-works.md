@@ -125,6 +125,7 @@ Agents start from zero every run, so everything they need is in the repo:
 | CI was red on the default branch for 15 days and a release went out on top | Weekly CI run, `ci-watch.yml` opens an issue, `release.yml` requires a green CI run on the tagged commit |
 | A lookup table the agent invented shipped in a release; hand-written fixtures hid a broken default behind 100 green tests | Domain data cites a source (`docs/upstream.md`), fixtures are trimmed real files |
 | Two agent PRs for the same issue blocked the autopilot for 11 days | The agent first checks the issue is open and has no PR; the autopilot names the blocking PR in its summary |
+| First live run of the hardened setup: the agent wrote the code but could not run a single check -- the runner had no `python`/`pip`, and the fallbacks were not on the allowlist | Agent jobs set up the type's toolchain; refused tool calls are listed in the run's summary |
 | A push with the workflow token never started the follow-up workflow | Known GitHub rule (no recursion); where a follow-up must run, start it with `gh workflow run` |
 | A conflict in a committed bundle was merged by hand and shipped broken | Rebuild on conflict, never hand-merge generated files; CI checks committed output against its sources |
 | A README image vanished in HACS after a rename | HACS shows the README frozen at the release tag and strips relative paths and `<picture>`: absolute URLs, never renamed between releases |

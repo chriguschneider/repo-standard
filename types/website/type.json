@@ -38,7 +38,8 @@
     "CHANGELOG_TASK_LINE": "Checked on the preview deployment (link in the PR)",
     "RELEASE_ADR_LINE": "- **Promotion instead of tag releases**: work lands on `@@BRANCH@@`, which deploys a preview; a human approves the preview and fast-forwards `@@PRODUCTION_BRANCH@@` (`git push origin @@BRANCH@@:@@PRODUCTION_BRANCH@@`), then verifies the live site. No tags, no changelog.",
     "SENSITIVE_EXTRA": "|public/_headers$|public/_redirects$|src/config\\.ts$|astro\\.config\\.(ts|mjs)$|\\.nvmrc$",
-    "AGENT_ENV": "ASTRO_TELEMETRY_DISABLED: \"1\""
+    "AGENT_ENV": "ASTRO_TELEMETRY_DISABLED: \"1\"",
+    "AGENT_SETUP": "# The agent runs the repo's checks itself.\n- uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0\n  if: steps.token.outputs.present == 'true'\n  with:\n    node-version-file: .nvmrc"
   },
   "required_checks": [
     "Build and check"
