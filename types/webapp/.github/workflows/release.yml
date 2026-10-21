@@ -55,9 +55,13 @@ jobs:
             echo "::error::Tag $tag declares version $version, but package.json says $declared."
             exit 1
           fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          case "$tag" in *-*) echo "latest=false" ;; *) echo "latest=true" ;; esac >> "$GITHUB_OUTPUT"
+          latest=true
+          case "$tag" in *-*) latest=false ;; esac
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "latest=$latest"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Extract the changelog section
         env:
@@ -135,6 +139,6 @@ jobs:
           pre=""
           case "$TAG" in *-*) pre="--prerelease" ;; esac
           image="$(echo "$IMAGE:$TAG" | tr '[:upper:]' '[:lower:]')"
-          printf '\n\nImage: `%s`\n' "$image" >> release-notes.md
+          printf "\n\nImage: \`%s\`\n" "$image" >> release-notes.md
           gh release create "$TAG" --title "$title" --notes-file release-notes.md \
             --verify-tag $pre

@@ -101,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           docker run -d --name app -p 127.0.0.1:3000:3000 -e ORIGIN=http://127.0.0.1:3000 @@REPO@@:ci
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000/health; then echo; docker rm -f app; exit 0; fi
             sleep 1
           done
