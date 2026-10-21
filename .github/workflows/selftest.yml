@@ -29,6 +29,7 @@ jobs:
           - { type: lovelace-card, mode: opt-in, domain: demo-card, variants: "" }
           - { type: website, mode: opt-in, domain: demo-site, variants: "" }
           - { type: website, mode: minimal, domain: demo-site, variants: "" }
+          - { type: webapp, mode: opt-in, domain: demo-app, variants: "" }
     env:
       TYPE: ${{ matrix.type }}
       MODE: ${{ matrix.mode }}
@@ -85,7 +86,7 @@ jobs:
           python -m build
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: matrix.type == 'lovelace-card' || matrix.type == 'website' || contains(matrix.variants, 'with-card')
+        if: matrix.type == 'lovelace-card' || matrix.type == 'website' || matrix.type == 'webapp' || contains(matrix.variants, 'with-card')
         with:
           node-version: "22"
 
@@ -124,3 +125,24 @@ jobs:
           npm install --no-audit --no-fund
           npm audit --omit=dev --audit-level=high
           npm run build
+
+      - name: Checks (webapp)
+        if: matrix.type == 'webapp'
+        run: |
+          set -euo pipefail
+          cd "$DEMO"
+          npm install --ignore-scripts --no-audit --no-fund
+          npm audit --omit=dev --audit-level=high
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run build
+          npx playwright install --with-deps chromium
+          CI=1 npm run test:e2e
+          docker build -t demo-webapp .
+          docker run -d --name demo-webapp -p 127.0.0.1:3000:3000 -e ORIGIN=http://127.0.0.1:3000 demo-webapp
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/health; then echo; docker rm -f demo-webapp; exit 0; fi
+            sleep 1
+          done
+          echo "::error::/health did not answer within 30 s"; docker logs demo-webapp; docker rm -f demo-webapp; exit 1

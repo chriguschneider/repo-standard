@@ -1,0 +1,27 @@
+node_modules/
+build/
+.svelte-kit/
+.output/
+.vercel/
+.netlify/
+vite.config.ts.timestamp-*
+
+# Runtime state: the SQLite database and uploads live outside the repo.
+data/
+.env
+.env.*
+!.env.example
+
+# Test output
+playwright-report/
+test-results/
+coverage/
+
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Machine-local Claude notes (shared conventions: AGENTS.md, via CLAUDE.md)
+CLAUDE.local.md
+.claude/settings.local.json

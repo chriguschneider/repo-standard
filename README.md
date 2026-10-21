@@ -43,6 +43,7 @@ and [`weather-station-card`](https://github.com/chriguschneider/weather-station-
 | `ha-integration` | a Home Assistant custom integration (HACS) | hassfest, HACS, ruff, pytest | zip release for HACS |
 | `lovelace-card` | a Home Assistant dashboard card (HACS) | HACS, eslint, tsc, vitest + jsdom smoke test, bundle budget | committed `dist/`, tag release |
 | `website` | an Astro static site on Cloudflare Pages | `astro check`, build, internal link and CSP checks | promotion: `test` (preview) → `main` (live), no tags |
+| `webapp` | a self-hosted web app: SvelteKit + SQLite (Drizzle), one Docker image | prettier, eslint, svelte-check, vitest, Playwright smoke against the production build, migrations in sync, image builds and answers `/health` | tag release: image on GHCR (`vX.Y.Z`, `latest`) |
 
 Variants of `ha-integration` (`--variant`, combinable unless noted): `device` (a device on the LAN: host, serial as unique id, several entries, works while the device is off), `smoke` (weekly smoke test against the upstream, opens an issue on drift), `with-card` (ships its own dashboard card inside the integration; not with `device`).
 
@@ -120,7 +121,7 @@ closest existing one.
 
 A personal standard, used on my own repos and shared because the set-up is
 the interesting part. Issues and ideas are welcome; there is no support
-promise. Every push renders all four types and runs their checks (badge above);
+promise. Every push renders every type and runs its checks (badge above);
 the GitHub side has been proven in the repos it was distilled from.
 
 ## Licence

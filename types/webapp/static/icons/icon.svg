@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- TODO(repo-standard): placeholder icon; replace with the app's own (also add 192 and 512 px PNGs to the manifest for Android). -->
+  <rect width="512" height="512" rx="96" fill="#1f2937"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="#f9fafb" stroke-width="40"/>
+</svg>

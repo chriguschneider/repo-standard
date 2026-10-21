@@ -1,0 +1,14 @@
+# Generated, vendored or hand-formatted elsewhere; `npm run lint` checks the rest.
+build/
+.svelte-kit/
+node_modules/
+drizzle/
+data/
+playwright-report/
+test-results/
+package-lock.json
+*.md
+.github/
+.claude/
+docs/
+static/

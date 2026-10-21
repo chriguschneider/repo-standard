@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+node_modules
+build
+.svelte-kit
+data
+.env
+.env.*
+playwright-report
+test-results
+coverage
+docs
+*.md
+CLAUDE.local.md

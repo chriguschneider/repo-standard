@@ -1,0 +1,57 @@
+{
+  "description": "A self-hosted web app: SvelteKit (TypeScript) with adapter-node, SQLite via Drizzle ORM, shipped as one Docker image on GHCR and run with docker compose.",
+  "required": [
+    "REPO",
+    "NAME",
+    "DESCRIPTION",
+    "DOMAIN"
+  ],
+  "placeholders": {
+    "TYPE": "webapp",
+    "CODEQL_LANGUAGE": "javascript-typescript",
+    "CHECKS_INLINE": "`npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`",
+    "AGENT_CHECKS": "`npm ci --ignore-scripts`, `npm run lint`, `npm run typecheck`, `npm test`,\n`npm run build`; for a schema change also `npm run db:generate` and\ncommit the migration under `drizzle/` (CI fails when it is out of sync).\n`npx playwright install chromium && npm run test:e2e` when a route or a\npage changed.",
+    "HOLD_EXAMPLES": "e.g. a visible UI or UX change the issue leaves open, a database migration that drops or rewrites data, anything in authentication, sessions or permissions, anything that touches personal data of children, a new environment variable or a change to the Dockerfile",
+    "VERSION_SYNC_RULE": "`package.json` is the only place the version is written (`src/lib/version.ts` imports it, `/health` reports it, the image tag comes from the git tag which release.yml checks against it). Flag a version literal anywhere else, and a version bump without a `## [vX.Y.Z]` changelog section.",
+    "BUG_LOGS_HINT": "`docker compose logs app` (or the terminal running `npm run dev`), the page URL, and browser console output (F12 → Console) if something does not load.",
+    "BUG_ENVIRONMENT": "- **Version**: (`/health` shows it, e.g. 0.1.0)\n- **How it runs**: (docker compose / `npm run dev`)\n- **Browser / device**: (e.g., Chrome 140 on an Android tablet)",
+    "STRUCTURE": "src/\n├── env.ts                  # every environment variable, validated at startup\n├── hooks.server.ts         # runs migrations on startup; auth/session hooks\n├── lib/\n│   ├── server/db/          # index.ts (SQLite + Drizzle), schema.ts (tables)\n│   ├── server/             # services (server-only)\n│   └── version.ts          # VERSION from package.json\n└── routes/                 # pages (+page.svelte), API (+server.ts), /health\ndrizzle/                    # generated migrations, committed\nstatic/                     # manifest.webmanifest, icons/ (PWA)\ntests/                      # Playwright smoke specs (against `node build`)\nDockerfile, docker-compose.yml, .env.example\ndocs/adr/                   # decisions",
+    "RELEASE_STEPS": "Releases are automated via tag push (`.github/workflows/release.yml`, ADR-0001):\n\n1. **Update version and changelog**: `npm version X.Y.Z --no-git-tag-version`\n   (writes `package.json` and `package-lock.json`, the only places the\n   version lives). Rename `## [Unreleased]` to `## [vX.Y.Z] — YYYY-MM-DD`,\n   add a fresh empty `## [Unreleased]` and the link definition. Commit as\n   `chore(release): vX.Y.Z`.\n2. **Verify**: `npm test` (checks lock file and changelog carry the new\n   version).\n3. **Tag** with an **annotated** tag: `git tag -a vX.Y.Z -m \"what changed\"`.\n   A hyphenated tag (`v1.2.0-beta.1`) becomes a pre-release and does not\n   move the `latest` image tag.\n4. **Push**: `git push origin vX.Y.Z`. The workflow verifies the tag,\n   builds the image from the tagged tree, pushes it to GHCR as `vX.Y.Z`\n   (and `latest`), and creates the release with the changelog section as\n   notes.\n5. **Deploy**: on the host, `docker compose pull && docker compose up -d`,\n   then check `/health` reports the new version.",
+    "TESTING": "- `npm ci --ignore-scripts` once (Node 22; the flag because npm 10 would\n  otherwise compile better-sqlite3 from source, see the web app rules).\n- **Lint**: `npm run lint` (prettier, eslint). **Types**: `npm run typecheck`\n  (svelte-check).\n- **Unit tests**: `npm test` (vitest, `src/**/*.test.ts`). The metadata\n  test guards the version source and the changelog section.\n- **End to end**: `npx playwright install chromium` once, then\n  `npm run test:e2e`: builds, starts `node build` on port 4173 with a\n  throwaway database, runs `tests/*.spec.ts` in Chromium at a tablet\n  viewport.\n- **Image**: `docker build -t @@REPO@@ .` and `docker run --rm -p 3000:3000\n  -e ORIGIN=http://localhost:3000 @@REPO@@`, then open `/health`. CI does\n  exactly this.\n- **Migrations**: CI regenerates from the schema and fails if `drizzle/`\n  differs. `npm run db:generate` after every schema change.",
+    "DEPENDABOT_EXTRA": "- package-ecosystem: \"npm\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  groups:\n    # vitest and its plugins pin each other as peers: one PR, also for majors.\n    vitest:\n      patterns: [\"vitest\", \"@vitest/*\"]\n    # SvelteKit, its adapter and the Vite plugin move together.\n    sveltekit:\n      patterns: [\"@sveltejs/*\", \"svelte\", \"svelte-check\"]\n    npm-minor-patch:\n      patterns: [\"*\"]\n      update-types: [\"minor\", \"patch\"]\n  commit-message:\n    prefix: \"chore(deps)\"\n    include: \"scope\"\n\n- package-ecosystem: \"docker\"\n  directory: \"/\"\n  schedule:\n    interval: \"weekly\"\n  cooldown:\n    default-days: 7\n  commit-message:\n    prefix: \"chore(docker)\"",
+    "AGENT_TOOLS": "Bash(npm ci*),Bash(npm install*),Bash(npm run lint*),Bash(npm run format*),Bash(npm run typecheck*),Bash(npm run build*),Bash(npm test*),Bash(npm run test:e2e*),Bash(npm run db:generate*),Bash(npm audit*),Bash(npx vitest*),Bash(npx playwright*),Bash(npx svelte-check*),Bash(npx svelte-kit*),Bash(npx eslint*),Bash(npx prettier*),Bash(npx drizzle-kit*),Bash(npx tsc*),Bash(node *),Bash(npm run *),Bash(docker build*)",
+    "EGRESS_EXTRA": "cdn.playwright.dev:443\nplaywright.download.prss.microsoft.com:443\nregistry-1.docker.io:443\nauth.docker.io:443\nproduction.cloudflare.docker.com:443",
+    "SENSITIVE_EXTRA": "|Dockerfile$|docker-compose\\.yml$|\\.env\\.example$|drizzle\\.config\\.ts$|src/env\\.ts$|src/hooks\\.server\\.ts$|src/lib/server/auth",
+    "AGENT_SETUP": "# The agent runs the repo's checks itself.\n- uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0\n  if: steps.token.outputs.present == 'true'\n  with:\n    node-version: \"22\""
+  },
+  "required_checks": [
+    "Lint, typecheck, test, build",
+    "E2E smoke",
+    "Docker build"
+  ],
+  "labels": {
+    "area-ui": [
+      "0e8a16",
+      "Pages, components, styling"
+    ],
+    "area-api": [
+      "1d76db",
+      "Server routes, services, validation"
+    ],
+    "area-db": [
+      "5319e7",
+      "Schema, migrations, queries"
+    ],
+    "area-ops": [
+      "fbca04",
+      "Docker, deployment, environment"
+    ]
+  },
+  "post_render": [
+    "npm install --ignore-scripts   # creates package-lock.json, commit it",
+    "npm run lint && npm run typecheck && npm test && npm run build",
+    "npx playwright install chromium && npm run test:e2e",
+    "docker build -t @@REPO@@ .",
+    "cp .env.example .env   # local only, gitignored"
+  ]
+}

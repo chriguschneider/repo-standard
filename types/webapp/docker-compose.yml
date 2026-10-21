@@ -1,0 +1,14 @@
+# Self-hosting: `cp .env.example .env`, edit it, `docker compose up -d`.
+# The app listens on 127.0.0.1:3000 only; put a reverse proxy with TLS in
+# front (Caddy, nginx, Traefik) and point ORIGIN at its public address.
+services:
+  app:
+    image: ghcr.io/octocat/demo:latest
+    container_name: demo
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - '127.0.0.1:3000:3000'
+    volumes:
+      # The SQLite database and uploads. Back up this folder (see README).
+      - ./data:/data
