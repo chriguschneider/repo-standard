@@ -1,0 +1,1 @@
+<a href="https://github.com/@@OWNER@@/@@REPO@@/pkgs/container/@@REPO@@"><img alt="Docker image on GHCR" src="https://img.shields.io/badge/ghcr.io-@@REPO@@-2496ED.svg?logo=docker&logoColor=white" /></a>

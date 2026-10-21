@@ -47,6 +47,8 @@ def detect_type(repo: Path) -> str | None:
         return "lovelace-card"
     if any(repo.glob("astro.config.*")) and (repo / "public" / "_headers").is_file():
         return "website"
+    if (repo / "Dockerfile").is_file() and "@sveltejs/kit" in text(repo / "package.json"):
+        return "webapp"
     if (repo / "pyproject.toml").is_file() and (repo / "src").is_dir():
         return "python"
     if (repo / "VERSION").is_file() and (repo / "scripts" / "check.sh").is_file():
@@ -206,7 +208,7 @@ def type_checks(repo: Path, repo_type: str | None, spec: dict, variants: list[st
     labeled = text(repo / ".github/workflows/claude-labeled.yml")
     if labeled and repo_type in ("ha-integration", "python"):
         report("setup-python" in labeled, "type", "agent job sets up Python (else it cannot run the checks)")
-    if labeled and repo_type in ("lovelace-card", "website"):
+    if labeled and repo_type in ("lovelace-card", "website", "webapp"):
         report("setup-node" in labeled, "type", "agent job sets up Node (else it cannot run the checks)")
     if repo_type == "lovelace-card":
         report(bool(list((repo / "dist").glob("*.js"))), "type", "committed dist/ bundle (run npm run build)", todo=True)
@@ -215,6 +217,12 @@ def type_checks(repo: Path, repo_type: str | None, spec: dict, variants: list[st
         report(bool(list((repo / "tests").glob("test_*.py"))), "type", "tests/ with pytest tests")
     elif repo_type == "website":
         report("astro check" in text(repo / "package.json"), "type", "build runs astro check")
+    elif repo_type == "webapp":
+        report(bool(list((repo / "src").rglob("*.test.ts"))), "type", "src/ with vitest tests")
+        report(bool(list((repo / "tests").glob("*.spec.ts"))), "type", "tests/ with Playwright specs")
+        report("HEALTHCHECK" in text(repo / "Dockerfile"), "type", "Dockerfile with HEALTHCHECK")
+        report(bool(list((repo / "drizzle").glob("*.sql"))), "type", "drizzle/ with committed migrations")
+        report("migrate(" in text(repo / "src/hooks.server.ts"), "type", "migrations run on startup (hooks.server.ts)")
 
 
 def gh_json(args: list[str]):

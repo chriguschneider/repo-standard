@@ -1,0 +1,14 @@
+{
+  "name": "@@NAME@@",
+  "short_name": "@@NAME@@",
+  "description": "@@DESCRIPTION@@",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1f2937",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

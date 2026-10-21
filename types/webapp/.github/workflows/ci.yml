@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [@@BRANCH@@]
+  pull_request:
+  workflow_dispatch:
+  # Weekly, so tool or upstream drift (a dependency, a base image) turns CI
+  # red even without commits; ci-watch.yml opens an issue.
+  schedule:
+    - cron: "23 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      # --ignore-scripts: npm 10 compiles better-sqlite3 from source on
+      # `npm ci` although it ships prebuilt binaries; nothing here needs
+      # install scripts (see AGENTS.md, "Web app rules").
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Security audit (shipped dependencies)
+        # Blocking: a high/critical advisory in what runs in the container.
+        # Dev tooling never reaches the image, so it does not block.
+        run: npm audit --omit=dev --audit-level=high
+      - name: Security audit (all, informational)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Migrations match the schema
+        # A schema change without `npm run db:generate` would only surface
+        # at startup. drizzle-kit regenerates into a scratch folder and the
+        # tree must be unchanged.
+        run: |
+          npx drizzle-kit generate --name ci-check
+          if [ -n "$(git status --porcelain -- drizzle/)" ]; then
+            echo "::error::drizzle/ is out of sync with src/lib/server/db/schema.ts. Run 'npm run db:generate' and commit the result."
+            git --no-pager status --short -- drizzle/
+            exit 1
+          fi
+
+  e2e:
+    name: E2E smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      # Builds first (playwright.config.ts webServer), then runs the specs
+      # against `node build`, the same artifact the image runs.
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          load: true
+          tags: @@REPO@@:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: The image starts and answers /health
+        # The runtime stage differs from the build (prod deps only, non-root,
+        # migrations on startup): only a running container proves it.
+        run: |
+          set -euo pipefail
+          docker run -d --name app -p 127.0.0.1:3000:3000 -e ORIGIN=http://127.0.0.1:3000 @@REPO@@:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/health; then echo; docker rm -f app; exit 0; fi
+            sleep 1
+          done
+          echo "::error::/health did not answer within 30 s"
+          docker logs app
+          docker rm -f app
+          exit 1
