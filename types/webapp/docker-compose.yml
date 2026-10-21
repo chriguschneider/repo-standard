@@ -3,8 +3,8 @@
 # front (Caddy, nginx, Traefik) and point ORIGIN at its public address.
 services:
   app:
-    image: ghcr.io/octocat/demo:latest
-    container_name: demo
+    image: ghcr.io/@@OWNER@@/@@REPO@@:latest
+    container_name: @@REPO@@
     restart: unless-stopped
     env_file: .env
     ports:
