@@ -110,6 +110,35 @@ def security_checks(repo: Path) -> None:
         report("Hold sensitive paths" in review, "security", "reviewer holds sensitive paths for a human")
 
 
+def allowlist(body: str) -> list[str] | None:
+    m = re.search(r'--allowedTools "([^"]*)"', body)
+    return [t for t in m.group(1).split(",") if t] if m else None
+
+
+def agent_guidance_checks(repo: Path) -> None:
+    """The agent workflows carry the standard's allowlist base and refusal
+    guidance. A repo set up before these were added keeps an allowlist that
+    refuses grep/head/tail and chained commands, and its agent gives up on the
+    first refusal (chriguschneider/chriguschneider#28)."""
+    wf = repo / ".github" / "workflows"
+    tpl = text(ROOT / "common/.github/workflows/claude-labeled.yml")
+    base = [t for t in allowlist(tpl) or [] if "@@" not in t]
+    for name in ("claude-labeled.yml", "claude-mention.yml"):
+        body = text(wf / name)
+        have = allowlist(body)
+        if have is None:
+            continue  # no workflow, or no allowlist (already a security finding)
+        missing = [t for t in base if t not in have]
+        report(not missing, "repo", f"{name}: allowlist has the standard base" + (f" (missing {len(missing)}: {', '.join(missing[:4])}{' …' if len(missing) > 4 else ''})" if missing else ""), stale=bool(missing))
+    labeled = text(wf / "claude-labeled.yml")
+    if allowlist(labeled) is not None:
+        report("checks every command of a chain" in labeled, "repo", "claude-labeled.yml: prompt explains refused calls (chain rule)", stale=True)
+    mention = text(wf / "claude-mention.yml")
+    if allowlist(mention) is not None:
+        report("--append-system-prompt" in mention, "repo", "claude-mention.yml: system prompt explains refused calls", stale=True)
+        report("Report refused tool calls" in mention, "repo", "claude-mention.yml: reports refused tool calls", stale=True)
+
+
 def repo_checks(repo: Path, repo_type: str | None, spec: dict) -> None:
     wf = repo / ".github" / "workflows"
     skipped = set(spec.get("skip", []))
@@ -243,6 +272,11 @@ def github_checks(repo_id: str, spec: dict, variants: list[str]) -> None:
         report(branch == placeholders["BRANCH"], "github", f"default branch is {placeholders['BRANCH']}")
     report(info.get("allow_auto_merge") is True, "github", "auto-merge allowed")
     report(info.get("delete_branch_on_merge") is True, "github", "delete branch on merge")
+    # after-agent-run.sh opens the leftover PR with GITHUB_TOKEN; GitHub refuses
+    # that unless Actions may create pull requests (github-setup.py sets it).
+    perms = gh_json(["api", f"repos/{repo_id}/actions/permissions/workflow"]) or {}
+    report(perms.get("default_workflow_permissions") == "read" and perms.get("can_approve_pull_request_reviews") is True,
+           "github", "Actions may create pull requests, token read-only by default")
 
     wanted = set(json.loads(text(ROOT / "labels.json"))) | set(spec.get("labels", {}))
     have = {lbl["name"] for lbl in gh_json(["label", "list", "-R", repo_id, "--limit", "200", "--json", "name"]) or []}
@@ -296,6 +330,7 @@ def main() -> None:
 
     security_checks(repo)
     repo_checks(repo, repo_type, spec)
+    agent_guidance_checks(repo)
     type_checks(repo, repo_type, spec, variants)
     if a.github:
         github_checks(a.github, spec, variants)
