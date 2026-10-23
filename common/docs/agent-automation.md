@@ -58,7 +58,7 @@ something:
 
 | Layer | What it does | Where |
 |---|---|---|
-| Tool allowlist | `--permission-mode dontAsk` plus `--allowedTools`: git, a few `gh` subcommands, the everyday text/file tools (grep, find, head, tail, cat, sed, awk, jq, cp, mv, …) and the repo's own check commands and script runner (node / python3). Anything else is refused without a prompt; shell loops are never matched, so the prompt tells the agent to switch to an allowed equivalent instead of stopping. No `--dangerously-skip-permissions`. | `claude_args` in each workflow |
+| Tool allowlist | `--permission-mode dontAsk` plus `--allowedTools`: git (including merge, cherry-pick and rebase), a few `gh` subcommands, the everyday text/file tools (grep, find, head, tail, cat, sed, awk, jq, cp, mv, …) and the repo's own check commands and script runner (node / python3). Anything else is refused without a prompt; shell loops are never matched, so the prompt tells the agent to switch to an allowed equivalent instead of stopping. No `--dangerously-skip-permissions`. | `claude_args` in each workflow |
 | Deny rules | `gh api`, `gh secret`, `gh workflow`, `gh repo`, `curl`, `wget`, force pushes. Deny always wins. | `.claude/ci-settings.json` |
 | Path guard hook | Blocks every write to `.github/` and `.claude/`, through file tools or the shell. Runs only on GitHub Actions; local sessions are unaffected. | `.claude/hooks/protect-paths.py` |
 | Trusted text only | Untrusted issues are refused, foreign comments are filtered out, the autopilot only takes issues written by the owner. | job `if:`, `include_comments_by_actor`, `pick-next-issue.sh` |
@@ -95,6 +95,13 @@ Other rules:
   rather than instructions, to stop if the issue is closed or already has
   an open PR, and never to invent domain data (every lookup table or
   constant cites a source).
+- **Bringing an existing branch in:** an issue may ask the agent to merge
+  a named branch (or cherry-pick named commits) onto its `claude/` branch,
+  e.g. "merge `fix/old-attempt` and finish it". `git merge`, `git
+  cherry-pick` and `git rebase` are on the allowlist; force pushes stay
+  denied, so a rebase only works on commits the agent has not pushed yet.
+  The result still goes through the PR and the reviewer, never straight
+  onto `@@BRANCH@@`.
 - **Changes only a human may make** (`.github/`, `.claude/`): the agent
   writes `Refs #N` instead of `Closes #N` and a `## Human-only change`
   section with the exact diff. The reviewer then holds the PR and opens a
