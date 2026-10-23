@@ -24,6 +24,8 @@ AREAS = ("security", "repo", "type", "github", "vault")
 results: list[tuple[str, str, str]] = []
 # Backticked `*.yml` names in ADRs that are not workflows.
 NOT_WORKFLOWS = {"dependabot.yml", "services.yaml", "quality_scale.yaml", "docker-compose.yml"}
+# Git commands an issue may need to bring an existing branch onto the agent's.
+BRANCH_TOOLS = ("Bash(git merge*)", "Bash(git cherry-pick*)", "Bash(git rebase*)")
 
 
 def report(ok: bool | None, area: str, what: str, stale: bool = False, todo: bool = False) -> None:
@@ -123,13 +125,17 @@ def agent_guidance_checks(repo: Path) -> None:
     wf = repo / ".github" / "workflows"
     tpl = text(ROOT / "common/.github/workflows/claude-labeled.yml")
     base = [t for t in allowlist(tpl) or [] if "@@" not in t]
-    for name in ("claude-labeled.yml", "claude-mention.yml"):
+    for name in ("claude-labeled.yml", "claude-mention.yml", "claude-autopilot.yml"):
         body = text(wf / name)
         have = allowlist(body)
         if have is None:
             continue  # no workflow, or no allowlist (already a security finding)
         missing = [t for t in base if t not in have]
         report(not missing, "repo", f"{name}: allowlist has the standard base" + (f" (missing {len(missing)}: {', '.join(missing[:4])}{' …' if len(missing) > 4 else ''})" if missing else ""), stale=bool(missing))
+        # Named on its own: without these an issue that asks to bring an
+        # existing branch in ends in refused calls (hass-meteoswiss-radar #239/#242).
+        no_git = [t for t in BRANCH_TOOLS if t not in have]
+        report(not no_git, "repo", f"{name}: allowlist lets the agent merge a named branch" + (f" (missing: {', '.join(no_git)})" if no_git else ""), stale=bool(no_git))
     labeled = text(wf / "claude-labeled.yml")
     if allowlist(labeled) is not None:
         report("checks every command of a chain" in labeled, "repo", "claude-labeled.yml: prompt explains refused calls (chain rule)", stale=True)

@@ -24,13 +24,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: CI passed on the tagged commit
+      - name: CI finished green on the tagged commit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           ok="$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId --jq length)"
           if [ "$ok" = "0" ]; then
-            echo "::error::No green CI run for $GITHUB_SHA. Tag a commit that passed CI on the default branch."
+            echo "::error::No finished green CI run for $GITHUB_SHA. A run that is still in progress does not count: wait until CI on the merge commit has completed successfully, then re-run this workflow (or tag a commit that already passed CI on the default branch)."
             exit 1
           fi
 
